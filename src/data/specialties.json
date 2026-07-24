@@ -1,0 +1,29 @@
+{
+  "categories": [
+    "Cardiac Care",
+    "Diabetes & Endocrine",
+    "Skin & Aesthetics",
+    "Child Health",
+    "Women's Health",
+    "Bone & Joint",
+    "Neuro & Mental Health",
+    "Gastro & Liver",
+    "Respiratory & ENT",
+    "General Medicine"
+  ],
+  "specialties": [
+    { "name": "Cardiologist", "category": "Cardiac Care" },
+    { "name": "Diabetologist", "category": "Diabetes & Endocrine" },
+    { "name": "Endocrinologist", "category": "Diabetes & Endocrine" },
+    { "name": "Dermatologist", "category": "Skin & Aesthetics" },
+    { "name": "Pediatrician", "category": "Child Health" },
+    { "name": "Gynecologist", "category": "Women's Health" },
+    { "name": "Orthopedic Surgeon", "category": "Bone & Joint" },
+    { "name": "Neurologist", "category": "Neuro & Mental Health" },
+    { "name": "Psychiatrist", "category": "Neuro & Mental Health" },
+    { "name": "Gastroenterologist", "category": "Gastro & Liver" },
+    { "name": "Pulmonologist", "category": "Respiratory & ENT" },
+    { "name": "ENT Specialist", "category": "Respiratory & ENT" },
+    { "name": "General Physician", "category": "General Medicine" }
+  ]
+}

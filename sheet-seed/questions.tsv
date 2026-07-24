@@ -1,0 +1,71 @@
+specialty	id	question	option1	option2	option3	option4	answer
+default	gen1	The normal resting heart rate for a healthy adult falls in which range?	40–50 bpm	60–100 bpm	100–120 bpm	120–140 bpm	1
+default	gen2	Which vitamin is primarily synthesised in the skin on exposure to sunlight?	Vitamin A	Vitamin B12	Vitamin C	Vitamin D	3
+default	gen3	What is the medical term for high blood pressure?	Hypotension	Hypertension	Tachycardia	Bradycardia	1
+default	gen4	Which organ is chiefly responsible for filtering blood and producing urine?	Liver	Kidney	Spleen	Pancreas	1
+default	gen5	The BMI value generally considered as the upper limit of 'normal' weight is:	18.5	22.9	24.9	29.9	2
+default	gen6	Which of the following is a common first-line analgesic and antipyretic?	Paracetamol	Warfarin	Metformin	Atenolol	0
+default	gen7	HbA1c is a marker used to monitor which condition over ~3 months?	Anaemia	Diabetes	Thyroid disorder	Hypertension	1
+default	gen8	Which electrolyte imbalance is most associated with dangerous cardiac arrhythmias?	Hyponatraemia	Hyperkalaemia	Hypocalcaemia	Hypomagnesaemia	1
+default	gen9	The 'silent killer' among the following non-communicable diseases is often called:	Asthma	Hypertension	Migraine	Eczema	1
+default	gen10	Which class of drugs ends typically with the suffix '-pril'?	Beta blockers	ACE inhibitors	Statins	Proton pump inhibitors	1
+Cardiologist	card1	Which biomarker is most specific for acute myocardial injury?	CK-MB	Troponin I/T	Myoglobin	LDH	1
+Cardiologist	card2	First-line drug class for reducing mortality in HFrEF (reduced ejection fraction) includes:	Calcium channel blockers	ACE inhibitors / ARNI	Nitrates alone	Digoxin alone	1
+Cardiologist	card3	The classic ECG finding in acute STEMI is:	ST depression	ST elevation	Prolonged QT	Peaked P waves	1
+Cardiologist	card4	Which valve is most commonly affected in rheumatic heart disease?	Aortic	Mitral	Tricuspid	Pulmonary	1
+Cardiologist	card5	CHA₂DS₂-VASc score is used to assess:	Bleeding risk	Stroke risk in atrial fibrillation	Heart failure severity	Pre-op cardiac risk	1
+Cardiologist	card6	A target LDL of <55 mg/dL is generally recommended for which risk group?	Low risk	Moderate risk	Very high cardiovascular risk	No target needed	2
+Cardiologist	card7	Which drug is the antidote-monitored anticoagulant requiring INR checks?	Apixaban	Warfarin	Rivaroxaban	Dabigatran	1
+Cardiologist	card8	Beck's triad (hypotension, muffled heart sounds, raised JVP) suggests:	Pulmonary embolism	Cardiac tamponade	Aortic dissection	Tension pneumothorax	1
+Cardiologist	card9	Which of the following is a non-dihydropyridine calcium channel blocker?	Amlodipine	Nifedipine	Verapamil	Felodipine	2
+Cardiologist	card10	The most common cause of sudden cardiac death in young athletes is:	Dilated cardiomyopathy	Hypertrophic cardiomyopathy	Myocarditis	Coronary spasm	1
+Diabetologist	dia1	First-line oral agent for most patients with type 2 diabetes is:	Sulfonylurea	Metformin	Insulin	Pioglitazone	1
+Diabetologist	dia2	An HbA1c value of ≥ which percent is diagnostic of diabetes?	5.7%	6.0%	6.5%	7.0%	2
+Diabetologist	dia3	Which drug class offers proven cardiovascular and renal benefit in T2DM?	SGLT2 inhibitors	Sulfonylureas	Meglitinides	Alpha-glucosidase inhibitors	0
+Diabetologist	dia4	The most common cause of hypoglycaemia in a treated diabetic is:	Excess carbohydrate	Missed/late meal with medication	Dehydration	Fever	1
+Diabetologist	dia5	Diabetic ketoacidosis is most typical of:	Type 1 diabetes	Type 2 diabetes only	Gestational diabetes	MODY	0
+Diabetologist	dia6	Annual screening for diabetic nephropathy uses:	Serum sodium	Urine albumin-to-creatinine ratio	Fasting lipid only	Liver enzymes	1
+Diabetologist	dia7	Which GLP-1 receptor agonist is also widely used for weight management?	Sitagliptin	Semaglutide	Glimepiride	Acarbose	1
+Diabetologist	dia8	The recommended fasting plasma glucose target for most non-pregnant adults is:	80–130 mg/dL	140–180 mg/dL	50–70 mg/dL	180–220 mg/dL	0
+Diabetologist	dia9	Which vitamin deficiency is associated with long-term metformin use?	Vitamin C	Vitamin B12	Vitamin K	Vitamin A	1
+Diabetologist	dia10	Diabetic patients should have a dilated eye exam to screen for:	Cataract only	Retinopathy	Glaucoma only	Refractive error	1
+Dermatologist	derm1	First-line topical treatment for mild acne vulgaris often includes:	Systemic steroids	Benzoyl peroxide / topical retinoid	Oral antifungals	Cyclosporine	1
+Dermatologist	derm2	The 'herald patch' is a classic early sign of:	Psoriasis	Pityriasis rosea	Lichen planus	Tinea versicolor	1
+Dermatologist	derm3	Which is the most important modifiable risk factor for melanoma?	Diet	UV radiation exposure	Smoking	Alcohol	1
+Dermatologist	derm4	Auspitz sign (pinpoint bleeding on scale removal) is characteristic of:	Eczema	Psoriasis	Urticaria	Vitiligo	1
+Dermatologist	derm5	First-line oral drug for severe nodulocystic acne is:	Isotretinoin	Doxycycline	Metronidazole	Fluconazole	0
+Dermatologist	derm6	The most common causative organism of impetigo is:	E. coli	Staphylococcus aureus	Candida	Pseudomonas	1
+Dermatologist	derm7	Which condition is characterised by depigmented macules due to melanocyte loss?	Melasma	Vitiligo	Albinism	Tinea	1
+Dermatologist	derm8	Topical calcineurin inhibitors (e.g., tacrolimus) are commonly used in:	Atopic dermatitis	Fungal infection	Bacterial cellulitis	Scabies	0
+Dermatologist	derm9	A 'Christmas tree' distribution of lesions on the trunk suggests:	Psoriasis	Pityriasis rosea	Contact dermatitis	Scabies	1
+Dermatologist	derm10	Which sunscreen SPF blocks roughly 97% of UVB rays?	SPF 15	SPF 30	SPF 50	SPF 100	1
+Pediatrician	ped1	The BCG vaccine in the national immunisation schedule primarily protects against:	Polio	Tuberculosis	Measles	Hepatitis B	1
+Pediatrician	ped2	Exclusive breastfeeding is recommended for the first how many months of life?	3 months	6 months	9 months	12 months	1
+Pediatrician	ped3	First-line management of mild-to-moderate dehydration in a child is:	IV fluids immediately	Oral rehydration solution (ORS)	Antibiotics	Antiemetics only	1
+Pediatrician	ped4	A child typically begins to walk independently around:	6 months	9 months	12–15 months	24 months	2
+Pediatrician	ped5	Which is the leading cause of under-5 mortality from infection globally?	Pneumonia	Malaria	Meningitis	Tetanus	0
+Pediatrician	ped6	The rotavirus vaccine primarily prevents:	Respiratory infection	Severe diarrhoeal disease	Skin infection	Ear infection	1
+Pediatrician	ped7	Koplik spots on the buccal mucosa are pathognomonic of:	Chickenpox	Measles	Rubella	Mumps	1
+Pediatrician	ped8	Which fontanelle normally closes last, by around 18 months?	Posterior fontanelle	Anterior fontanelle	Sphenoid fontanelle	Mastoid fontanelle	1
+Pediatrician	ped9	The recommended paracetamol dose for fever in children is approximately:	5 mg/kg	10–15 mg/kg	25 mg/kg	40 mg/kg	1
+Pediatrician	ped10	APGAR score is assessed at which time points after birth?	1 and 5 minutes	10 and 20 minutes	At 1 hour	At 24 hours	0
+Gynecologist	gyn1	The most common cause of cervical cancer is persistent infection with:	HSV	HPV	HIV	Chlamydia	1
+Gynecologist	gyn2	Folic acid supplementation before conception mainly prevents:	Preterm labour	Neural tube defects	Gestational diabetes	Anaemia only	1
+Gynecologist	gyn3	The first-line investigation for suspected ectopic pregnancy includes:	CT abdomen	Transvaginal ultrasound + serum β-hCG	Plain X-ray	Colposcopy	1
+Gynecologist	gyn4	PCOS is most commonly associated with which hormonal feature?	Hyperandrogenism	Hypothyroidism only	Low insulin	High progesterone	0
+Gynecologist	gyn5	The average duration of a normal menstrual cycle is approximately:	14 days	21 days	28 days	40 days	2
+Gynecologist	gyn6	Which screening test is used for early detection of cervical cancer?	Pap smear	Mammogram	CA-125	Bone scan	0
+Gynecologist	gyn7	Magnesium sulphate is the drug of choice in obstetrics for:	Postpartum haemorrhage	Eclampsia/pre-eclampsia seizure prophylaxis	Induction of labour	Lactation suppression	1
+Gynecologist	gyn8	The most common cause of postpartum haemorrhage is:	Uterine atony	Retained placenta	Coagulopathy	Cervical tear	0
+Gynecologist	gyn9	Which contraceptive method is most effective at preventing pregnancy?	Condoms	Combined oral pills	Long-acting reversible contraceptives (IUD/implant)	Withdrawal	2
+Gynecologist	gyn10	Gestational diabetes is typically screened for at which gestational age?	6–8 weeks	24–28 weeks	36–40 weeks	At delivery	1
+General Physician	gp1	First-line antibiotic for uncomplicated community-acquired pneumonia in a healthy adult is often:	Amoxicillin/macrolide	Vancomycin	Meropenem	Ciprofloxacin only	0
+General Physician	gp2	Which is a red-flag symptom requiring urgent evaluation in headache?	Gradual mild ache	Sudden 'thunderclap' onset	Relief with rest	Bilateral tension type	1
+General Physician	gp3	The recommended blood pressure threshold for stage 1 hypertension (ACC/AHA) is:	120/80	130/80	140/90	160/100	1
+General Physician	gp4	Which is the most appropriate first-line management for type 2 diabetes plus lifestyle?	Insulin	Metformin	Sulfonylurea	No pharmacotherapy	1
+General Physician	gp5	A patient with sudden unilateral leg swelling and pain should be evaluated for:	Cellulitis only	Deep vein thrombosis	Muscle cramp	Gout	1
+General Physician	gp6	The most common cause of iron-deficiency anaemia in adult men is:	Poor diet	Chronic GI blood loss	Haemolysis	Renal failure	1
+General Physician	gp7	First-line drug for an acute anaphylactic reaction is:	Antihistamine	Intramuscular adrenaline	Oral steroid	Salbutamol	1
+General Physician	gp8	Which vaccine is recommended annually for high-risk adults?	Tetanus	Influenza	Hepatitis A	Typhoid	1
+General Physician	gp9	The CURB-65 score is used to assess severity of:	Heart failure	Pneumonia	Stroke	Pancreatitis	1
+General Physician	gp10	Which lifestyle change has the greatest impact on reducing cardiovascular risk?	Smoking cessation	Vitamin supplements	Reducing coffee	Standing desk	0

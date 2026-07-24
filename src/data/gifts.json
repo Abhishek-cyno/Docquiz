@@ -1,0 +1,26 @@
+[
+  {
+    "id": "premium-pen",
+    "title": "Premium Doctor's Pen Set",
+    "desc": "Elegant metal pen set, engraved.",
+    "emoji": "🖊️"
+  },
+  {
+    "id": "coffee-voucher",
+    "title": "Coffee Voucher",
+    "desc": "₹500 voucher for your favourite café.",
+    "emoji": "☕"
+  },
+  {
+    "id": "medical-journal",
+    "title": "Digital Journal Access",
+    "desc": "3-month premium clinical journal subscription.",
+    "emoji": "📚"
+  },
+  {
+    "id": "amazon-voucher",
+    "title": "Amazon Gift Card",
+    "desc": "₹500 shopping voucher.",
+    "emoji": "🎁"
+  }
+]

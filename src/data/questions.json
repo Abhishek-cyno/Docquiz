@@ -1,0 +1,86 @@
+{
+  "default": [
+    { "id": "gen1", "q": "The normal resting heart rate for a healthy adult falls in which range?", "options": ["40–50 bpm", "60–100 bpm", "100–120 bpm", "120–140 bpm"], "answer": 1 },
+    { "id": "gen2", "q": "Which vitamin is primarily synthesised in the skin on exposure to sunlight?", "options": ["Vitamin A", "Vitamin B12", "Vitamin C", "Vitamin D"], "answer": 3 },
+    { "id": "gen3", "q": "What is the medical term for high blood pressure?", "options": ["Hypotension", "Hypertension", "Tachycardia", "Bradycardia"], "answer": 1 },
+    { "id": "gen4", "q": "Which organ is chiefly responsible for filtering blood and producing urine?", "options": ["Liver", "Kidney", "Spleen", "Pancreas"], "answer": 1 },
+    { "id": "gen5", "q": "The BMI value generally considered as the upper limit of 'normal' weight is:", "options": ["18.5", "22.9", "24.9", "29.9"], "answer": 2 },
+    { "id": "gen6", "q": "Which of the following is a common first-line analgesic and antipyretic?", "options": ["Paracetamol", "Warfarin", "Metformin", "Atenolol"], "answer": 0 },
+    { "id": "gen7", "q": "HbA1c is a marker used to monitor which condition over ~3 months?", "options": ["Anaemia", "Diabetes", "Thyroid disorder", "Hypertension"], "answer": 1 },
+    { "id": "gen8", "q": "Which electrolyte imbalance is most associated with dangerous cardiac arrhythmias?", "options": ["Hyponatraemia", "Hyperkalaemia", "Hypocalcaemia", "Hypomagnesaemia"], "answer": 1 },
+    { "id": "gen9", "q": "The 'silent killer' among the following non-communicable diseases is often called:", "options": ["Asthma", "Hypertension", "Migraine", "Eczema"], "answer": 1 },
+    { "id": "gen10", "q": "Which class of drugs ends typically with the suffix '-pril'?", "options": ["Beta blockers", "ACE inhibitors", "Statins", "Proton pump inhibitors"], "answer": 1 }
+  ],
+  "Cardiologist": [
+    { "id": "card1", "q": "Which biomarker is most specific for acute myocardial injury?", "options": ["CK-MB", "Troponin I/T", "Myoglobin", "LDH"], "answer": 1 },
+    { "id": "card2", "q": "First-line drug class for reducing mortality in HFrEF (reduced ejection fraction) includes:", "options": ["Calcium channel blockers", "ACE inhibitors / ARNI", "Nitrates alone", "Digoxin alone"], "answer": 1 },
+    { "id": "card3", "q": "The classic ECG finding in acute STEMI is:", "options": ["ST depression", "ST elevation", "Prolonged QT", "Peaked P waves"], "answer": 1 },
+    { "id": "card4", "q": "Which valve is most commonly affected in rheumatic heart disease?", "options": ["Aortic", "Mitral", "Tricuspid", "Pulmonary"], "answer": 1 },
+    { "id": "card5", "q": "CHA₂DS₂-VASc score is used to assess:", "options": ["Bleeding risk", "Stroke risk in atrial fibrillation", "Heart failure severity", "Pre-op cardiac risk"], "answer": 1 },
+    { "id": "card6", "q": "A target LDL of <55 mg/dL is generally recommended for which risk group?", "options": ["Low risk", "Moderate risk", "Very high cardiovascular risk", "No target needed"], "answer": 2 },
+    { "id": "card7", "q": "Which drug is the antidote-monitored anticoagulant requiring INR checks?", "options": ["Apixaban", "Warfarin", "Rivaroxaban", "Dabigatran"], "answer": 1 },
+    { "id": "card8", "q": "Beck's triad (hypotension, muffled heart sounds, raised JVP) suggests:", "options": ["Pulmonary embolism", "Cardiac tamponade", "Aortic dissection", "Tension pneumothorax"], "answer": 1 },
+    { "id": "card9", "q": "Which of the following is a non-dihydropyridine calcium channel blocker?", "options": ["Amlodipine", "Nifedipine", "Verapamil", "Felodipine"], "answer": 2 },
+    { "id": "card10", "q": "The most common cause of sudden cardiac death in young athletes is:", "options": ["Dilated cardiomyopathy", "Hypertrophic cardiomyopathy", "Myocarditis", "Coronary spasm"], "answer": 1 }
+  ],
+  "Diabetologist": [
+    { "id": "dia1", "q": "First-line oral agent for most patients with type 2 diabetes is:", "options": ["Sulfonylurea", "Metformin", "Insulin", "Pioglitazone"], "answer": 1 },
+    { "id": "dia2", "q": "An HbA1c value of ≥ which percent is diagnostic of diabetes?", "options": ["5.7%", "6.0%", "6.5%", "7.0%"], "answer": 2 },
+    { "id": "dia3", "q": "Which drug class offers proven cardiovascular and renal benefit in T2DM?", "options": ["SGLT2 inhibitors", "Sulfonylureas", "Meglitinides", "Alpha-glucosidase inhibitors"], "answer": 0 },
+    { "id": "dia4", "q": "The most common cause of hypoglycaemia in a treated diabetic is:", "options": ["Excess carbohydrate", "Missed/late meal with medication", "Dehydration", "Fever"], "answer": 1 },
+    { "id": "dia5", "q": "Diabetic ketoacidosis is most typical of:", "options": ["Type 1 diabetes", "Type 2 diabetes only", "Gestational diabetes", "MODY"], "answer": 0 },
+    { "id": "dia6", "q": "Annual screening for diabetic nephropathy uses:", "options": ["Serum sodium", "Urine albumin-to-creatinine ratio", "Fasting lipid only", "Liver enzymes"], "answer": 1 },
+    { "id": "dia7", "q": "Which GLP-1 receptor agonist is also widely used for weight management?", "options": ["Sitagliptin", "Semaglutide", "Glimepiride", "Acarbose"], "answer": 1 },
+    { "id": "dia8", "q": "The recommended fasting plasma glucose target for most non-pregnant adults is:", "options": ["80–130 mg/dL", "140–180 mg/dL", "50–70 mg/dL", "180–220 mg/dL"], "answer": 0 },
+    { "id": "dia9", "q": "Which vitamin deficiency is associated with long-term metformin use?", "options": ["Vitamin C", "Vitamin B12", "Vitamin K", "Vitamin A"], "answer": 1 },
+    { "id": "dia10", "q": "Diabetic patients should have a dilated eye exam to screen for:", "options": ["Cataract only", "Retinopathy", "Glaucoma only", "Refractive error"], "answer": 1 }
+  ],
+  "Dermatologist": [
+    { "id": "derm1", "q": "First-line topical treatment for mild acne vulgaris often includes:", "options": ["Systemic steroids", "Benzoyl peroxide / topical retinoid", "Oral antifungals", "Cyclosporine"], "answer": 1 },
+    { "id": "derm2", "q": "The 'herald patch' is a classic early sign of:", "options": ["Psoriasis", "Pityriasis rosea", "Lichen planus", "Tinea versicolor"], "answer": 1 },
+    { "id": "derm3", "q": "Which is the most important modifiable risk factor for melanoma?", "options": ["Diet", "UV radiation exposure", "Smoking", "Alcohol"], "answer": 1 },
+    { "id": "derm4", "q": "Auspitz sign (pinpoint bleeding on scale removal) is characteristic of:", "options": ["Eczema", "Psoriasis", "Urticaria", "Vitiligo"], "answer": 1 },
+    { "id": "derm5", "q": "First-line oral drug for severe nodulocystic acne is:", "options": ["Isotretinoin", "Doxycycline", "Metronidazole", "Fluconazole"], "answer": 0 },
+    { "id": "derm6", "q": "The most common causative organism of impetigo is:", "options": ["E. coli", "Staphylococcus aureus", "Candida", "Pseudomonas"], "answer": 1 },
+    { "id": "derm7", "q": "Which condition is characterised by depigmented macules due to melanocyte loss?", "options": ["Melasma", "Vitiligo", "Albinism", "Tinea"], "answer": 1 },
+    { "id": "derm8", "q": "Topical calcineurin inhibitors (e.g., tacrolimus) are commonly used in:", "options": ["Atopic dermatitis", "Fungal infection", "Bacterial cellulitis", "Scabies"], "answer": 0 },
+    { "id": "derm9", "q": "A 'Christmas tree' distribution of lesions on the trunk suggests:", "options": ["Psoriasis", "Pityriasis rosea", "Contact dermatitis", "Scabies"], "answer": 1 },
+    { "id": "derm10", "q": "Which sunscreen SPF blocks roughly 97% of UVB rays?", "options": ["SPF 15", "SPF 30", "SPF 50", "SPF 100"], "answer": 1 }
+  ],
+  "Pediatrician": [
+    { "id": "ped1", "q": "The BCG vaccine in the national immunisation schedule primarily protects against:", "options": ["Polio", "Tuberculosis", "Measles", "Hepatitis B"], "answer": 1 },
+    { "id": "ped2", "q": "Exclusive breastfeeding is recommended for the first how many months of life?", "options": ["3 months", "6 months", "9 months", "12 months"], "answer": 1 },
+    { "id": "ped3", "q": "First-line management of mild-to-moderate dehydration in a child is:", "options": ["IV fluids immediately", "Oral rehydration solution (ORS)", "Antibiotics", "Antiemetics only"], "answer": 1 },
+    { "id": "ped4", "q": "A child typically begins to walk independently around:", "options": ["6 months", "9 months", "12–15 months", "24 months"], "answer": 2 },
+    { "id": "ped5", "q": "Which is the leading cause of under-5 mortality from infection globally?", "options": ["Pneumonia", "Malaria", "Meningitis", "Tetanus"], "answer": 0 },
+    { "id": "ped6", "q": "The rotavirus vaccine primarily prevents:", "options": ["Respiratory infection", "Severe diarrhoeal disease", "Skin infection", "Ear infection"], "answer": 1 },
+    { "id": "ped7", "q": "Koplik spots on the buccal mucosa are pathognomonic of:", "options": ["Chickenpox", "Measles", "Rubella", "Mumps"], "answer": 1 },
+    { "id": "ped8", "q": "Which fontanelle normally closes last, by around 18 months?", "options": ["Posterior fontanelle", "Anterior fontanelle", "Sphenoid fontanelle", "Mastoid fontanelle"], "answer": 1 },
+    { "id": "ped9", "q": "The recommended paracetamol dose for fever in children is approximately:", "options": ["5 mg/kg", "10–15 mg/kg", "25 mg/kg", "40 mg/kg"], "answer": 1 },
+    { "id": "ped10", "q": "APGAR score is assessed at which time points after birth?", "options": ["1 and 5 minutes", "10 and 20 minutes", "At 1 hour", "At 24 hours"], "answer": 0 }
+  ],
+  "Gynecologist": [
+    { "id": "gyn1", "q": "The most common cause of cervical cancer is persistent infection with:", "options": ["HSV", "HPV", "HIV", "Chlamydia"], "answer": 1 },
+    { "id": "gyn2", "q": "Folic acid supplementation before conception mainly prevents:", "options": ["Preterm labour", "Neural tube defects", "Gestational diabetes", "Anaemia only"], "answer": 1 },
+    { "id": "gyn3", "q": "The first-line investigation for suspected ectopic pregnancy includes:", "options": ["CT abdomen", "Transvaginal ultrasound + serum β-hCG", "Plain X-ray", "Colposcopy"], "answer": 1 },
+    { "id": "gyn4", "q": "PCOS is most commonly associated with which hormonal feature?", "options": ["Hyperandrogenism", "Hypothyroidism only", "Low insulin", "High progesterone"], "answer": 0 },
+    { "id": "gyn5", "q": "The average duration of a normal menstrual cycle is approximately:", "options": ["14 days", "21 days", "28 days", "40 days"], "answer": 2 },
+    { "id": "gyn6", "q": "Which screening test is used for early detection of cervical cancer?", "options": ["Pap smear", "Mammogram", "CA-125", "Bone scan"], "answer": 0 },
+    { "id": "gyn7", "q": "Magnesium sulphate is the drug of choice in obstetrics for:", "options": ["Postpartum haemorrhage", "Eclampsia/pre-eclampsia seizure prophylaxis", "Induction of labour", "Lactation suppression"], "answer": 1 },
+    { "id": "gyn8", "q": "The most common cause of postpartum haemorrhage is:", "options": ["Uterine atony", "Retained placenta", "Coagulopathy", "Cervical tear"], "answer": 0 },
+    { "id": "gyn9", "q": "Which contraceptive method is most effective at preventing pregnancy?", "options": ["Condoms", "Combined oral pills", "Long-acting reversible contraceptives (IUD/implant)", "Withdrawal"], "answer": 2 },
+    { "id": "gyn10", "q": "Gestational diabetes is typically screened for at which gestational age?", "options": ["6–8 weeks", "24–28 weeks", "36–40 weeks", "At delivery"], "answer": 1 }
+  ],
+  "General Physician": [
+    { "id": "gp1", "q": "First-line antibiotic for uncomplicated community-acquired pneumonia in a healthy adult is often:", "options": ["Amoxicillin/macrolide", "Vancomycin", "Meropenem", "Ciprofloxacin only"], "answer": 0 },
+    { "id": "gp2", "q": "Which is a red-flag symptom requiring urgent evaluation in headache?", "options": ["Gradual mild ache", "Sudden 'thunderclap' onset", "Relief with rest", "Bilateral tension type"], "answer": 1 },
+    { "id": "gp3", "q": "The recommended blood pressure threshold for stage 1 hypertension (ACC/AHA) is:", "options": ["120/80", "130/80", "140/90", "160/100"], "answer": 1 },
+    { "id": "gp4", "q": "Which is the most appropriate first-line management for type 2 diabetes plus lifestyle?", "options": ["Insulin", "Metformin", "Sulfonylurea", "No pharmacotherapy"], "answer": 1 },
+    { "id": "gp5", "q": "A patient with sudden unilateral leg swelling and pain should be evaluated for:", "options": ["Cellulitis only", "Deep vein thrombosis", "Muscle cramp", "Gout"], "answer": 1 },
+    { "id": "gp6", "q": "The most common cause of iron-deficiency anaemia in adult men is:", "options": ["Poor diet", "Chronic GI blood loss", "Haemolysis", "Renal failure"], "answer": 1 },
+    { "id": "gp7", "q": "First-line drug for an acute anaphylactic reaction is:", "options": ["Antihistamine", "Intramuscular adrenaline", "Oral steroid", "Salbutamol"], "answer": 1 },
+    { "id": "gp8", "q": "Which vaccine is recommended annually for high-risk adults?", "options": ["Tetanus", "Influenza", "Hepatitis A", "Typhoid"], "answer": 1 },
+    { "id": "gp9", "q": "The CURB-65 score is used to assess severity of:", "options": ["Heart failure", "Pneumonia", "Stroke", "Pancreatitis"], "answer": 1 },
+    { "id": "gp10", "q": "Which lifestyle change has the greatest impact on reducing cardiovascular risk?", "options": ["Smoking cessation", "Vitamin supplements", "Reducing coffee", "Standing desk"], "answer": 0 }
+  ]
+}
