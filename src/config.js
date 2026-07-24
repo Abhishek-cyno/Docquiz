@@ -1,5 +1,5 @@
 // ============================================================
-//  SETU PHARMA — App configuration
+//  CYNO PHARMA — App configuration
 //  Edit these values. No need to touch component code.
 // ============================================================
 

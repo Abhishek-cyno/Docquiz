@@ -1,5 +1,5 @@
 /**
- * Setu Pharma — Live content source (Specialties + Questions)
+ * Cyno Pharma — Live content source (Specialties + Questions)
  * -------------------------------------------------------------
  * This is a SEPARATE Google Sheet + Apps Script from the one that saves
  * quiz responses (google-apps-script.gs). This one is READ-ONLY from the

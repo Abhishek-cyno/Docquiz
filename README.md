@@ -1,4 +1,4 @@
-# Setu Pharma — Doctor Connect Quiz
+# Cyno Pharma — Doctor Connect Quiz
 
 A mobile-first React app for collecting doctor information via a QR-code funnel:
 
@@ -91,7 +91,7 @@ Browser JavaScript can't write to Google Sheets directly and securely. The stand
 1. Open `google-apps-script.gs` in this folder and follow the setup steps at the top.
 2. Paste the Web App URL into `sheetEndpoint` in `src/config.js`.
 
-Until you do that, every response is still saved in the browser's `localStorage` under `setu_pharma_responses`, so nothing is lost during testing. Each saved row includes the **score**, specialty, category, chosen gift, booked **meeting date & time**, and full answer breakdown.
+Until you do that, every response is still saved in the browser's `localStorage` under `cyno_pharma_responses`, so nothing is lost during testing. Each saved row includes the **score**, specialty, category, chosen gift, booked **meeting date & time**, and full answer breakdown.
 
 ---
 

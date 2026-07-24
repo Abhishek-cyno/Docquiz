@@ -1,9 +1,9 @@
 {
-  "name": "setu-doctor-quiz",
+  "name": "cyno-doctor-quiz",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Setu Pharma - Doctor engagement & data collection quiz platform",
+  "description": "Cyno Pharma - Doctor engagement & data collection quiz platform",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

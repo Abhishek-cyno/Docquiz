@@ -1,5 +1,5 @@
 /**
- * Setu Pharma — Google Sheet receiver
+ * Cyno Pharma — Google Sheet receiver
  * ------------------------------------
  * This tiny script runs on Google's free servers (NOT your own backend).
  * It receives quiz responses from the React app and appends a row to a Sheet.

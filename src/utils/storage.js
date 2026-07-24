@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js'
 
-const LOCAL_KEY = 'setu_pharma_responses'
+const LOCAL_KEY = 'cyno_pharma_responses'
 
 // Save a completed response. Tries the Google Sheet endpoint if configured,
 // and ALWAYS keeps a local copy as a fallback / backup.
