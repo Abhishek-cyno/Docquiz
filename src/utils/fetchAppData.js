@@ -34,7 +34,13 @@ export async function fetchAppData() {
   }
 
   try {
-    const res = await fetch(CONFIG.dataEndpoint)
+    // The endpoint URL never changes, so browsers (and any CDN in front of
+    // the Apps Script redirect) can silently serve a stale cached response
+    // instead of re-fetching after a sheet edit. `cache: 'no-store'` plus a
+    // cache-busting query param forces a fresh hit every page load.
+    const separator = CONFIG.dataEndpoint.includes('?') ? '&' : '?'
+    const url = `${CONFIG.dataEndpoint}${separator}_=${Date.now()}`
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!isValidPayload(data)) throw new Error('Unexpected response shape')
