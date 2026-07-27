@@ -31,5 +31,5 @@ export const CONFIG = {
   // 'abhhiiiii/30min'  -> books that one event type directly (fewer clicks)
   // 'abhhiiiii'        -> shows your full booking page, doctor picks the event
   // No API key needed: the embed uses your public booking page.
-  calLink: 'abhhiiiii/30min',
+  calLink: 'abhishek-jain/30min',
 }
