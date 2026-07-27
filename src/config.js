@@ -18,13 +18,13 @@ export const CONFIG = {
   // questions from a Google Sheet instead — edit the Sheet, no redeploy
   // needed. If this URL is unreachable, the app falls back to the
   // bundled defaults automatically.
-  dataEndpoint: 'https://script.google.com/macros/s/AKfycbwMJv3hhtwVwJ81RNqVaSsheSWMztvolCqV3Sxty14gz9lnmL7NWDYyVSsYd8eEzuKs/exec',
+  dataEndpoint: 'https://script.google.com/macros/s/AKfycbyTmIBApKgWTFJhkyXc4X4AJpUmFByQyGLQtwFR1purc-3BNiLTe-dYwfPW_hofYhDw/exec',
 
   // ---- Google Sheet saving ----
   // Leave EMPTY ('') to save responses in the browser (localStorage) only.
   // Paste your Google Apps Script Web App URL here to save into a live Google Sheet.
   // Setup steps are in README.md.
-  sheetEndpoint: 'https://script.google.com/macros/s/AKfycbxke7qbeaSZ6gC9csjW-kk29fXpoiJVKbFi2B3bl74akuNFgwr9MhEMgOtzNf8Ks5XrcA/exec',
+  sheetEndpoint: 'https://script.google.com/macros/s/AKfycbyBchtd9n5qQiE3m3fw450V7V8RnAKsfx5DhSUstOIZO_7UTE8l9KvjUiug8frsD9sd/exec',
 
   // ---- Cal.com scheduling ----
   // Your Cal.com event link — just the part AFTER cal.com/
