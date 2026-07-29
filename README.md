@@ -2,7 +2,7 @@
 
 A mobile-first React app for collecting doctor information via a QR-code funnel:
 
-**QR scan → Landing → Register (name + specialty, auto-mapped category) → Quiz intro → Personalised 3-question quiz (instant green/red feedback, progress bar) → Result → Choose a gift → Book a slot (Cal.com) → Meeting confirmed & data saved.**
+**QR scan → Landing → Register (name + specialty, auto-mapped category) → Quiz intro → Personalised 3-question quiz (instant green/red feedback, progress bar) → Result → Choose a gift → Book a slot (own booking engine) → Meeting confirmed, email + WhatsApp sent, data saved.**
 
 Built with Vite + React + Framer Motion. All questions live in JSON (no hardcoding in components).
 
@@ -61,10 +61,11 @@ docquiz/
    │  ├─ QuizPage.jsx
    │  ├─ CompletePage.jsx       # trophy + score
    │  ├─ GiftPage.jsx
-   │  ├─ SchedulePage.jsx       # Cal.com inline embed
+   │  ├─ SchedulePage.jsx       # slot picker + contact details
    │  └─ ScheduledPage.jsx      # meeting confirmed (saves the response)
    ├─ utils/
    │  ├─ shuffle.js             # random 3-of-10 picker
+   │  ├─ booking.js             # slot fetching + booking requests
    │  └─ storage.js             # Sheet + localStorage saving
    └─ styles/
       └─ index.css
@@ -80,7 +81,7 @@ docquiz/
 | `questionsPerQuiz` | How many questions per doctor (default 3) |
 | `sheetEndpoint` | Google Apps Script URL — see below. Empty = save to browser only |
 | `dataEndpoint` | Google Apps Script URL for live specialties/questions — see below. Empty = use bundled `src/data/*.json` |
-| `calLink` | Your Cal.com event link — the part after `cal.com/`, e.g. `dr-priya/intro-call` |
+| `bookingEndpoint` | Google Apps Script URL for the booking engine — see below. Empty = scheduling is disabled |
 
 ---
 
@@ -108,6 +109,41 @@ From then on, every page load fetches the current sheet contents — edit a row 
 
 ---
 
+## Booking engine (replaces Cal.com)
+
+Scheduling is handled by `google-apps-script-booking.gs` — a third Apps Script, on a third Sheet. It does everything the Cal.com embed used to:
+
+| Job | How |
+|---|---|
+| Available slots | Generated from rules in the `Availability` tab (weekday, start, end, gap) minus the `Blackouts` tab |
+| No double-booking | `LockService` script lock around a re-read of the `Bookings` tab — the losing request gets `reason: 'taken'` and the UI refreshes |
+| Calendar entry | `CalendarApp` event on your calendar, with the doctor invited |
+| Confirmation email | `MailApp`, sent **from the Google account that owns the script** — no SMTP, no third party |
+| WhatsApp | Webhook to Pabbly Connect → Pabbly Chatflow |
+
+Setup steps are at the top of `google-apps-script-booking.gs`. In short: paste the file into a new Sheet's Apps Script, run `setupSheets` once, fill in the `Settings` tab, deploy as a Web App, and paste the URL into `bookingEndpoint` in `src/config.js`.
+
+**Why the client-side greying-out isn't the real protection:** the slot grid is always a snapshot. Two doctors on the page at once will both render the same slot as free. The `LockService` check in `doPost` is what actually guarantees a slot goes out once; the greyed-out button is just so it rarely comes up.
+
+Everything is pinned to **IST (`Asia/Kolkata`)** with a hard-coded `+05:30` offset — India has no DST, so this sidesteps timezone drift entirely. There is deliberately no timezone picker.
+
+### WhatsApp via Pabbly
+
+The script POSTs a flat JSON payload to whatever URL is in `Settings` → `pabblyWebhook`. Wire a Pabbly Connect workflow with a **Webhook** trigger and a **Pabbly Chatflow → send template message** action, then map these fields to your template variables:
+
+`ref` · `name` · `phone` (digits with country code, e.g. `919876543210`) · `email` · `specialty` · `category` · `date` · `time` · `dateLabel` · `timeLabel` · `whenLabel` · `gift` · `score` · `total` · `percent` · `brandName`
+
+Keep those names stable once the workflow is mapped. Note the webhook URL lives in the **Sheet, not `config.js`** — so it never ships inside the public JS bundle.
+
+> Business-initiated WhatsApp messages must use a **pre-approved template** (a Meta rule, not a Pabbly one). Get your template approved in Chatflow before expecting messages to land.
+
+### Quotas worth knowing
+
+- **Email:** ~100 recipients/day on a free Gmail account, 1,500/day on Workspace. Two mails per booking, so roughly 50 bookings/day on free Gmail.
+- **Pabbly Connect:** each booking burns 1–2 tasks against your plan.
+
+---
+
 ## The questions
 
 - `src/data/questions.json` (or the `Questions` tab, if `dataEndpoint` is set) holds a `default` set plus per-specialty sets.
@@ -122,4 +158,4 @@ From then on, every page load fetches the current sheet contents — edit a row 
 ## Notes
 
 - Fully responsive (mobile-first — most QR scans happen on phones).
-- Scheduling uses the **Cal.com inline embed** (`@calcom/embed-react`) in `SchedulePage.jsx`. Set your event in `config.js` → `calLink`. When a doctor completes a booking, the app captures the chosen date/time (via Cal's `bookingSuccessful` event) and saves it with the response, then advances automatically.
+- Scheduling is **self-hosted** — see the booking engine section above. No third-party embed, no per-booking fee.

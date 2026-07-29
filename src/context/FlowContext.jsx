@@ -5,6 +5,10 @@ import { CONFIG } from '../config.js'
 
 const FlowContext = createContext(null)
 
+const EMPTY_MEETING = {
+  date: '', time: '', dateLabel: '', timeLabel: '', ref: '', email: '', phone: '',
+}
+
 export const STEPS = {
   LANDING: 'landing',
   REGISTER: 'register',
@@ -23,7 +27,11 @@ export function FlowProvider({ children }) {
   const [questions, setQuestions] = useState([])
   const [answers, setAnswers] = useState([]) // { questionId, chosen, correct }
   const [gift, setGift] = useState(null)
-  const [meeting, setMeeting] = useState({ date: '', time: '' })
+  // Filled in by SchedulePage once the booking script confirms the slot.
+  // `date`/`time` are the machine values (2026-08-04 / 15:30); the *Label
+  // fields are what we show, formatted server-side so the doctor and the
+  // confirmation email can never disagree about the time.
+  const [meeting, setMeeting] = useState(EMPTY_MEETING)
 
   // Specialties/categories/questions can live in a Google Sheet (see
   // config.js -> dataEndpoint) so non-developers can edit them without a
@@ -65,7 +73,7 @@ export function FlowProvider({ children }) {
     setQuestions([])
     setAnswers([])
     setGift(null)
-    setMeeting({ date: '', time: '' })
+    setMeeting(EMPTY_MEETING)
   }
 
   const value = {

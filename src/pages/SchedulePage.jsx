@@ -1,72 +1,277 @@
-import { useEffect, useState } from 'react'
-import Cal, { getCalApi } from '@calcom/embed-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
-import { CONFIG } from '../config.js'
+import { fetchSlots, bookSlot } from '../utils/booking.js'
 
-// Pull a start time out of Cal.com's bookingSuccessful payload, whatever
-// shape it arrives in, and format it into a readable date + time.
-function extractSlot(data) {
-  const iso =
-    data?.date ||
-    data?.startTime ||
-    data?.booking?.startTime ||
-    data?.booking?.start ||
-    null
-  if (!iso) return { date: '', time: '' }
-  const d = new Date(iso)
-  if (isNaN(d)) return { date: '', time: '' }
-  return {
-    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-  }
-}
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+// The slot grid is only ever a snapshot. Someone else can take a time
+// between the page loading and this doctor pressing Confirm, so we re-pull
+// it periodically and whenever the tab regains focus. The booking script
+// still has the final say — this just keeps the UI honest most of the time.
+const REFRESH_MS = 60000
 
 export default function SchedulePage() {
-  const { gift, setMeeting, setStep } = useFlow()
-  const [booked, setBooked] = useState(false)
+  const { doctor, gift, score, questions, answers, setMeeting, setStep } = useFlow()
 
-  useEffect(() => {
-    let active = true
-    ;(async () => {
-      const cal = await getCalApi()
-      cal('on', {
-        action: 'bookingSuccessful',
-        callback: (e) => {
-          if (!active) return
-          const slot = extractSlot(e?.detail?.data)
-          setMeeting(slot)
-          setBooked(true)
-          // Give Cal's own confirmation a moment, then advance.
-          setTimeout(() => active && setStep(STEPS.SCHEDULED), 1200)
-        },
+  const [days, setDays] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  const [selectedDate, setSelectedDate] = useState('')
+  const [selectedTime, setSelectedTime] = useState('')
+
+  const [name, setName] = useState(doctor.name || '')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const submittingRef = useRef(false)
+
+  const load = useCallback(async ({ keepSelection = false } = {}) => {
+    try {
+      const fresh = await fetchSlots()
+      setDays(fresh)
+      setLoadError('')
+
+      setSelectedDate((current) => {
+        const stillOpen = fresh.find((d) => d.date === current && d.openCount > 0)
+        if (keepSelection && stillOpen) return current
+        return (fresh.find((d) => d.openCount > 0) || fresh[0] || {}).date || ''
       })
-    })()
-    return () => { active = false }
-  }, [setMeeting, setStep])
+    } catch (e) {
+      setLoadError(e.message || 'Could not load available times.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // Quiet background refresh. Never runs mid-submit, so the grid cannot
+  // shift underneath a booking that is already in flight.
+  useEffect(() => {
+    function refresh() {
+      if (submittingRef.current || document.hidden) return
+      load({ keepSelection: true })
+    }
+    const id = setInterval(refresh, REFRESH_MS)
+    window.addEventListener('focus', refresh)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [load])
+
+  const activeDay = useMemo(
+    () => days.find((d) => d.date === selectedDate) || null,
+    [days, selectedDate]
+  )
+
+  // A slot chosen earlier can be taken by someone else on the next refresh —
+  // drop the selection rather than letting Confirm submit a dead time.
+  useEffect(() => {
+    if (!selectedTime) return
+    const slot = activeDay?.slots.find((s) => s.time === selectedTime)
+    if (!slot || !slot.available) setSelectedTime('')
+  }, [activeDay, selectedTime])
+
+  function pickDate(date) {
+    setSelectedDate(date)
+    setSelectedTime('')
+    setNotice('')
+  }
+
+  async function onConfirm() {
+    if (!selectedDate || !selectedTime) return setFormError('Please pick a date and time.')
+    if (!name.trim()) return setFormError('Please enter your name.')
+    if (!EMAIL_RE.test(email.trim())) return setFormError('Please enter a valid email address.')
+    if (phone.replace(/\D/g, '').length < 10) return setFormError('Please enter a valid WhatsApp number.')
+
+    setFormError('')
+    setNotice('')
+    setSubmitting(true)
+    submittingRef.current = true
+
+    const total = questions.length
+    const result = await bookSlot({
+      date: selectedDate,
+      time: selectedTime,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      specialty: doctor.specialty,
+      category: doctor.category,
+      score,
+      total,
+      percent: total ? Math.round((score / total) * 100) : 0,
+      gift: gift?.title || '',
+      answers,
+    })
+
+    submittingRef.current = false
+    setSubmitting(false)
+
+    if (result.ok) {
+      setMeeting({
+        date: result.date,
+        time: result.time,
+        dateLabel: result.dateLabel,
+        timeLabel: result.timeLabel,
+        ref: result.ref,
+        email: email.trim(),
+        phone: phone.trim(),
+      })
+      setStep(STEPS.SCHEDULED)
+      return
+    }
+
+    if (result.reason === 'taken') {
+      // Someone beat us to it. Refresh so the grid reflects reality, and
+      // keep the doctor on the same day so re-picking is one tap.
+      setSelectedTime('')
+      setNotice('Sorry — that slot was booked a moment ago. Please pick another time.')
+      load({ keepSelection: true })
+      return
+    }
+
+    setFormError(result.error || 'Something went wrong. Please try again.')
+  }
+
+  const ready = selectedDate && selectedTime && name.trim() && email.trim() && phone.trim()
 
   return (
-    <div className="card">
-      <div style={{ textAlign: 'center', marginBottom: 18 }}>
+    <div className="card schedule-card">
+      <div style={{ textAlign: 'center', marginBottom: 22 }}>
         <h2 className="card__title">Schedule a Meeting 📅</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>
-          Pick a date &amp; time that works for you. Your gift <strong>{gift?.title}</strong> will be confirmed at the meeting.
+          Pick a date &amp; time that works for you. Our representative will visit you and hand over your gift <strong>{gift?.title}</strong> in person.
         </p>
       </div>
 
-      <div className="cal-embed">
-        <Cal
-          calLink={CONFIG.calLink}
-          style={{ width: '100%', height: '100%', overflow: 'scroll' }}
-          config={{ layout: 'month_view', theme: 'light' }}
-        />
-      </div>
+      {loading ? (
+        <div className="slot-empty">Loading available times…</div>
+      ) : loadError ? (
+        <div className="slot-empty slot-empty--error">
+          <p>{loadError}</p>
+          <button className="btn btn--ghost" onClick={() => { setLoading(true); load() }}>Try again</button>
+        </div>
+      ) : !days.length ? (
+        <div className="slot-empty">No times are open right now. Please check back shortly.</div>
+      ) : (
+        <div className="slot-layout">
+          <div className="slot-picker">
+            <div className="slot-picker__label">Select a date</div>
+            <div className="date-strip">
+              {days.map((day) => (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={
+                    'date-chip' +
+                    (day.date === selectedDate ? ' is-active' : '') +
+                    (day.openCount === 0 ? ' is-full' : '')
+                  }
+                  onClick={() => pickDate(day.date)}
+                  disabled={day.openCount === 0}
+                >
+                  <span className="date-chip__day">{day.weekday.slice(0, 3)}</span>
+                  <span className="date-chip__date">{day.shortLabel}</span>
+                  <span className="date-chip__count">
+                    {day.openCount === 0 ? 'Full' : `${day.openCount} open`}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-      <p className="cal-embed__powered">Powered by Cal.com</p>
+            <div className="slot-picker__label">
+              Select a time <span className="field__hint">(IST)</span>
+            </div>
+            <div className="slot-grid">
+              {activeDay?.slots.map((slot) => (
+                <button
+                  key={slot.time}
+                  type="button"
+                  className={
+                    'slot' +
+                    (slot.time === selectedTime ? ' is-active' : '') +
+                    (slot.available ? '' : ' is-taken')
+                  }
+                  onClick={() => { setSelectedTime(slot.time); setNotice('') }}
+                  disabled={!slot.available}
+                  title={slot.available ? '' : 'Already booked'}
+                >
+                  {slot.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="form__actions" style={{ marginTop: 6 }}>
-        <button className="btn btn--ghost" onClick={() => setStep(STEPS.GIFT)}>Back</button>
-        <button className="btn btn--primary" onClick={() => setStep(STEPS.SCHEDULED)}>
-          {booked ? 'Continue →' : "I've booked — Finish ✓"}
+          <div className="slot-details">
+            <div className="slot-details__label">Your details</div>
+
+            <motion.div
+              className="slot-summary"
+              initial={false}
+              animate={{ opacity: selectedTime ? 1 : 0.55 }}
+            >
+              <span className="ico">🗓️</span>
+              {selectedTime
+                ? `${activeDay?.label} at ${activeDay?.slots.find((s) => s.time === selectedTime)?.label}`
+                : 'Pick a slot to continue'}
+            </motion.div>
+
+            <label className="field">
+              <span className="field__label">Full Name</span>
+              <input
+                className="field__input"
+                type="text"
+                placeholder="Dr. Shivangi Mittal"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span className="field__label">Email</span>
+              <input
+                className="field__input"
+                type="email"
+                placeholder="you@hospital.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span className="field__label">
+                WhatsApp Number <span className="field__hint">(for your confirmation)</span>
+              </span>
+              <input
+                className="field__input"
+                type="tel"
+                inputMode="tel"
+                placeholder="+91 98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+
+            {notice && <p className="form__notice">{notice}</p>}
+            {formError && <p className="form__error">{formError}</p>}
+          </div>
+        </div>
+      )}
+
+      <div className="form__actions" style={{ marginTop: 22 }}>
+        <button className="btn btn--ghost" onClick={() => setStep(STEPS.GIFT)} disabled={submitting}>
+          Back
+        </button>
+        <button className="btn btn--primary" onClick={onConfirm} disabled={!ready || submitting}>
+          {submitting ? 'Booking…' : 'Confirm Booking ✓'}
         </button>
       </div>
     </div>

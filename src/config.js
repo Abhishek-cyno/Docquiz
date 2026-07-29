@@ -26,10 +26,12 @@ export const CONFIG = {
   // Setup steps are in README.md.
   sheetEndpoint: 'https://script.google.com/macros/s/AKfycbyBchtd9n5qQiE3m3fw450V7V8RnAKsfx5DhSUstOIZO_7UTE8l9KvjUiug8frsD9sd/exec',
 
-  // ---- Cal.com scheduling ----
-  // Your Cal.com event link — just the part AFTER cal.com/
-  // 'abhhiiiii/30min'  -> books that one event type directly (fewer clicks)
-  // 'abhhiiiii'        -> shows your full booking page, doctor picks the event
-  // No API key needed: the embed uses your public booking page.
-  calLink: 'abhishek-jain/30min',
+  // ---- Meeting scheduling (self-hosted, replaces Cal.com) ----
+  // Google Apps Script Web App URL from google-apps-script-booking.gs.
+  // This one endpoint serves the available slots AND takes the booking —
+  // it also creates the Calendar event, sends the confirmation email from
+  // your own address, and hands the booking to Pabbly for WhatsApp.
+  // Availability rules and the Pabbly webhook URL live in that Sheet, not
+  // here, so the webhook never ships inside the public JS bundle.
+  bookingEndpoint: 'https://script.google.com/macros/s/AKfycbyK3NMYIS5OQBGovGyaIjDstCs-uy-8e0StbU8popmet8HwTh7Cn2JtTsBYwHP_M14a/exec',
 }

@@ -11,7 +11,10 @@ export default function ScheduledPage() {
   const [saving, setSaving] = useState(true)
   const saved = useRef(false)
 
-  // Persist the response once, as soon as the meeting is confirmed.
+  // The booking script has already recorded the full response in its own
+  // Bookings sheet. This second write keeps the original responses sheet
+  // (config.sheetEndpoint) and the localStorage backup filling as before —
+  // clear sheetEndpoint in config.js if you'd rather have a single source.
   useEffect(() => {
     if (saved.current) return
     saved.current = true
@@ -24,8 +27,8 @@ export default function ScheduledPage() {
         total: questions.length,
         percent: questions.length ? Math.round((score / questions.length) * 100) : 0,
         gift: gift?.title || '',
-        meetingDate: meeting.date,
-        meetingTime: meeting.time,
+        meetingDate: meeting.dateLabel,
+        meetingTime: meeting.timeLabel,
         answers,
       })
       setSaving(false)
@@ -51,7 +54,9 @@ export default function ScheduledPage() {
         </motion.div>
 
         <h2 className="card__title">Meeting Scheduled!</h2>
-        <p className="card__sub">Your meeting has been successfully booked.</p>
+        <p className="card__sub">
+          Confirmation sent to <strong>{meeting.email}</strong> and on WhatsApp to <strong>{meeting.phone}</strong>.
+        </p>
 
         <motion.div
           className="booking-card"
@@ -59,9 +64,12 @@ export default function ScheduledPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="details__row"><span className="ico">📅</span> <span>Date</span> <b style={{ marginLeft: 'auto' }}>{meeting.date}</b></div>
-          <div className="details__row"><span className="ico">⏰</span> <span>Time</span> <b style={{ marginLeft: 'auto' }}>{meeting.time}</b></div>
+          <div className="details__row"><span className="ico">📅</span> <span>Date</span> <b style={{ marginLeft: 'auto' }}>{meeting.dateLabel}</b></div>
+          <div className="details__row"><span className="ico">⏰</span> <span>Time</span> <b style={{ marginLeft: 'auto' }}>{meeting.timeLabel} IST</b></div>
           <div className="details__row"><span className="ico">🤝</span> <span>Meeting</span> <b style={{ marginLeft: 'auto' }}>With our medical team</b></div>
+          {meeting.ref && (
+            <div className="details__row"><span className="ico">#️⃣</span> <span>Reference</span> <b style={{ marginLeft: 'auto' }}>{meeting.ref}</b></div>
+          )}
         </motion.div>
 
         <button className="btn btn--primary btn--lg" onClick={reset} disabled={saving}>

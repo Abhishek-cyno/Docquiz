@@ -635,15 +635,141 @@ select.field__input { appearance: none; cursor: pointer;
 .details__row b { font-weight: 700; color: var(--ink-900); }
 .details__empty { color: var(--ink-400); font-size: 13.5px; padding: 8px 0; }
 
-/* Cal.com embed */
-.cal-embed {
-  height: 64vh; min-height: 540px;
-  border: 1px solid var(--ink-200); border-radius: var(--radius);
-  overflow: hidden; background: var(--ink-50);
+/* Meeting scheduling */
+/* =========================================================
+   Slot picker — dates + times on the left, details on the right
+   ========================================================= */
+/* A bare .card would stretch to --page-max (1600px), which leaves the slot
+   grid smeared across ten columns and the form floating in dead space.
+   Match the width the other screens settle at. */
+.schedule-card { max-width: 1060px; margin: 0 auto; }
+
+.slot-layout {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 26px;
+  align-items: start;
 }
-.cal-embed__powered { text-align: center; font-size: 12px; color: var(--ink-400); margin: 12px 0 6px; }
+/* Grid items default to min-width:auto, so without this the date strip's
+   content sets the column width instead of scrolling inside it. */
+.slot-layout > * { min-width: 0; }
+
+.slot-picker__label,
+.slot-details__label {
+  font-size: 13px; font-weight: 700; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--ink-500);
+  margin-bottom: 10px;
+}
+.slot-picker__label:not(:first-child) { margin-top: 20px; }
+
+/* Horizontal day strip. Scrolls rather than wrapping so the row height
+   stays fixed however many days availability opens up. */
+.date-strip {
+  display: flex; gap: 10px;
+  overflow-x: auto; padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+}
+.date-strip::-webkit-scrollbar { height: 6px; }
+.date-strip::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 3px; }
+
+.date-chip {
+  flex: 0 0 auto; scroll-snap-align: start;
+  display: grid; gap: 2px; justify-items: center;
+  min-width: 78px; padding: 10px 12px;
+  background: #fff; border: 1.5px solid var(--ink-200);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.date-chip:hover:not(:disabled) { border-color: var(--brand-400); transform: translateY(-1px); }
+.date-chip.is-active {
+  border-color: var(--brand-600); background: var(--brand-50);
+  box-shadow: 0 0 0 4px var(--brand-100);
+}
+.date-chip.is-full { opacity: .45; cursor: not-allowed; }
+.date-chip__day { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--ink-400); }
+.date-chip__date { font-size: 15px; font-weight: 700; color: var(--ink-900); }
+.date-chip__count { font-size: 11px; color: var(--ink-500); }
+.date-chip.is-active .date-chip__count { color: var(--brand-700); font-weight: 600; }
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+  max-height: 300px; overflow-y: auto; padding-right: 4px;
+}
+
+.slot {
+  padding: 11px 8px;
+  background: #fff; border: 1.5px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; color: var(--ink-800);
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.slot:hover:not(:disabled) { border-color: var(--brand-400); transform: translateY(-1px); }
+.slot.is-active {
+  border-color: var(--brand-600); background: var(--brand-600); color: #fff;
+  box-shadow: 0 0 0 4px var(--brand-100);
+}
+/* Already booked: struck through rather than hidden, so the doctor can see
+   the day genuinely is filling up instead of wondering where times went. */
+.slot.is-taken {
+  background: var(--ink-100); color: var(--ink-400);
+  border-color: var(--ink-200); border-style: dashed;
+  text-decoration: line-through; cursor: not-allowed;
+}
+
+.slot-details {
+  display: grid; gap: 14px;
+  padding: 20px;
+  background: var(--ink-50);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius);
+}
+.slot-details .field { margin: 0; }
+
+.slot-summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  background: #fff; border: 1px dashed var(--brand-200);
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; color: var(--ink-800);
+}
+
+.slot-empty {
+  display: grid; gap: 14px; place-items: center;
+  padding: 48px 20px;
+  border: 1px dashed var(--ink-300); border-radius: var(--radius);
+  background: var(--ink-50); color: var(--ink-500); font-size: 15px;
+  text-align: center;
+}
+.slot-empty--error { color: var(--red-500); }
+
+.form__notice {
+  color: var(--brand-700); font-size: 13px; font-weight: 600;
+  background: var(--brand-50); border: 1px solid var(--brand-200);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin: 0;
+}
+
+/* The shared .form__actions caps at 440px and stretches its buttons, which
+   reads as broken on a card this wide — right-align them at natural size. */
+.schedule-card .form__actions {
+  max-width: none;
+  justify-content: flex-end;
+  border-top: 1px solid var(--ink-200);
+  padding-top: 18px;
+}
+.schedule-card .form__actions .btn { flex: 0 0 auto; min-width: 150px; }
+
+@media (max-width: 860px) {
+  .slot-layout { grid-template-columns: 1fr; }
+  .slot-grid { max-height: none; }
+}
+
 @media (max-width: 560px) {
-  .cal-embed { height: 70vh; min-height: 460px; }
+  .slot-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+  .slot-details { padding: 16px; }
+  .schedule-card .form__actions .btn { flex: 1; min-width: 0; }
 }
 
 /* =========================================================
