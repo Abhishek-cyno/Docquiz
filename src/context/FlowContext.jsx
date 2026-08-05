@@ -2,12 +2,15 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { pickRandom } from '../utils/shuffle.js'
 import { fetchAppData } from '../utils/fetchAppData.js'
 import { CONFIG } from '../config.js'
+import gifts from '../data/gifts.json'
 
 const FlowContext = createContext(null)
 
 const EMPTY_MEETING = {
   date: '', time: '', dateLabel: '', timeLabel: '', ref: '', email: '', phone: '',
 }
+
+const EMPTY_DOCTOR = { name: '', specialty: '', category: '', hasClinic: '' }
 
 export const STEPS = {
   LANDING: 'landing',
@@ -23,7 +26,7 @@ export const STEPS = {
 
 export function FlowProvider({ children }) {
   const [step, setStep] = useState(STEPS.LANDING)
-  const [doctor, setDoctor] = useState({ name: '', specialty: '', category: '' })
+  const [doctor, setDoctor] = useState(EMPTY_DOCTOR)
   const [questions, setQuestions] = useState([])
   const [answers, setAnswers] = useState([]) // { questionId, chosen, correct }
   const [gift, setGift] = useState(null)
@@ -67,9 +70,32 @@ export function FlowProvider({ children }) {
     [answers]
   )
 
+  // Clinic owners are the ones our reps can actually visit, so they win the
+  // high-value prizes and go on to book a meeting. Everyone else wins from the
+  // lower-value set and we simply ship the gift — no meeting.
+  const hasClinic = doctor.hasClinic === 'yes'
+
+  // Everyone sees the same wheel with every prize on it — premium and standard
+  // interleaved so neither tier sits in an obvious block. Only `winnableGifts`
+  // differs, and that decides which slice the wheel is allowed to stop on.
+  const giftWheel = useMemo(() => {
+    const mixed = []
+    const longest = Math.max(gifts.premium.length, gifts.standard.length)
+    for (let i = 0; i < longest; i++) {
+      if (gifts.premium[i]) mixed.push(gifts.premium[i])
+      if (gifts.standard[i]) mixed.push(gifts.standard[i])
+    }
+    return mixed
+  }, [])
+
+  const winnableGifts = useMemo(
+    () => (hasClinic ? gifts.premium : gifts.standard),
+    [hasClinic]
+  )
+
   function reset() {
     setStep(STEPS.LANDING)
-    setDoctor({ name: '', specialty: '', category: '' })
+    setDoctor(EMPTY_DOCTOR)
     setQuestions([])
     setAnswers([])
     setGift(null)
@@ -86,6 +112,7 @@ export function FlowProvider({ children }) {
     answers, recordAnswer,
     score,
     gift, setGift,
+    hasClinic, giftWheel, winnableGifts,
     meeting, setMeeting,
     reset,
   }

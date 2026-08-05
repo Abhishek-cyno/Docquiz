@@ -31,8 +31,8 @@ const STEPS = [
     Icon: GiftIcon,
     tone: 'violet',
     step: '03',
-    title: 'Choose your reward',
-    text: 'Pick the gift you actually want and book a slot with our team at your convenience.',
+    title: 'Spin & win your reward',
+    text: 'Spin the prize wheel and we will get your gift to you — clinic owners also book a visit.',
   },
 ]
 
@@ -50,7 +50,7 @@ export default function HowItWorks() {
         <span className="how__eyebrow">How It Works</span>
         <h2 className="how__title">Three steps. Under a minute.</h2>
         <p className="how__lede">
-          No paperwork, no long forms — just your expertise and a reward you choose.
+          No paperwork, no long forms — just your expertise and a reward you spin for.
         </p>
       </Reveal>
 

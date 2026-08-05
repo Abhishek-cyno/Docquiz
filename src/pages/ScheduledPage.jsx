@@ -23,6 +23,7 @@ export default function ScheduledPage() {
         name: doctor.name,
         specialty: doctor.specialty,
         category: doctor.category,
+        clinic: doctor.hasClinic,
         score,
         total: questions.length,
         percent: questions.length ? Math.round((score / questions.length) * 100) : 0,

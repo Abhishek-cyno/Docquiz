@@ -11,6 +11,7 @@ import CompletePage from './pages/CompletePage.jsx'
 import GiftPage from './pages/GiftPage.jsx'
 import SchedulePage from './pages/SchedulePage.jsx'
 import ScheduledPage from './pages/ScheduledPage.jsx'
+import ThankYouPage from './pages/ThankYouPage.jsx'
 
 const variants = {
   initial: { opacity: 0, y: 20 },
@@ -27,6 +28,7 @@ const screens = {
   [STEPS.GIFT]: GiftPage,
   [STEPS.SCHEDULE]: SchedulePage,
   [STEPS.SCHEDULED]: ScheduledPage,
+  [STEPS.THANKYOU]: ThankYouPage,
 }
 
 export default function App() {

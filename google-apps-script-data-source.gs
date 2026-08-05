@@ -3,8 +3,10 @@
  * -------------------------------------------------------------
  * This is a SEPARATE Google Sheet + Apps Script from the one that saves
  * quiz responses (google-apps-script.gs). This one is READ-ONLY from the
- * app's point of view: edit the Sheet, and the next time someone loads
- * the app they get your changes — no code changes, no redeploy.
+ * app's point of view: edit the Sheet, and within CONTENT_CACHE_TTL_SECONDS
+ * (2 minutes by default) everyone loading the app gets your changes — no
+ * code changes, no redeploy. Need it live sooner? Run ▸ clearContentCache
+ * in the Apps Script editor right after you save the edit.
  *
  * SETUP (5 minutes):
  * 1. Create a new Google Sheet (a fresh one — not the responses sheet).
@@ -35,23 +37,47 @@
  * src/data/specialties.json and src/data/questions.json, so it never breaks.
  */
 
+// This content only changes when someone edits the Specialties or Questions
+// tab — not moment to moment — but the client fetches it fresh on every
+// single page load (see src/utils/fetchAppData.js, which deliberately
+// cache-busts so browsers don't serve a stale copy). Without server-side
+// caching, every one of those loads pays for two full-sheet scans from
+// scratch. This makes almost all of them a cache read instead.
+//
+// Run clearContentCache() from the Apps Script editor (Run ▸ select it ▸ Run)
+// right after editing a tab if you don't want to wait for the TTL to catch up.
+var CONTENT_CACHE_KEY = 'content_v1';
+var CONTENT_CACHE_TTL_SECONDS = 120;
+
 function doGet(e) {
   try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get(CONTENT_CACHE_KEY);
+    if (cached) return rawJson(cached);
+
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var specialties = readSpecialties(ss);
     var categories = uniqueInOrder(specialties.map(function (s) { return s.category; }));
     var questions = readQuestions(ss);
 
-    var payload = { specialties: specialties, categories: categories, questions: questions };
-
-    return ContentService
-      .createTextOutput(JSON.stringify(payload))
-      .setMimeType(ContentService.MimeType.JSON);
+    var body = JSON.stringify({ specialties: specialties, categories: categories, questions: questions });
+    // A payload larger than CacheService's 100KB limit would throw here —
+    // better to serve it uncached than fail the whole request over it.
+    try { cache.put(CONTENT_CACHE_KEY, body, CONTENT_CACHE_TTL_SECONDS); } catch (cacheErr) {}
+    return rawJson(body);
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ result: 'error', message: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return rawJson(JSON.stringify({ result: 'error', message: err.message }));
   }
+}
+
+/** Manual escape hatch: Run ▸ clearContentCache after editing a tab to make
+ *  the change show up immediately instead of waiting out the TTL. */
+function clearContentCache() {
+  CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+}
+
+function rawJson(body) {
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
 }
 
 // Tolerant tab lookup: case-insensitive, ignores stray spaces, and

@@ -8,6 +8,7 @@ export default function RegisterPage() {
   const [name, setName] = useState(doctor.name)
   const [specialty, setSpecialty] = useState(doctor.specialty)
   const [category, setCategory] = useState(doctor.category)
+  const [hasClinic, setHasClinic] = useState(doctor.hasClinic)
   const [error, setError] = useState('')
 
   function onSpecialtyChange(value) {
@@ -21,8 +22,9 @@ export default function RegisterPage() {
     if (!name.trim()) return setError('Please enter your name.')
     if (!specialty) return setError('Please select your specialty.')
     if (!category) return setError('Please select your category.')
+    if (!hasClinic) return setError('Please tell us whether you have your own clinic.')
     setError('')
-    setDoctor({ name: name.trim(), specialty, category })
+    setDoctor({ name: name.trim(), specialty, category, hasClinic })
     setStep(STEPS.QUIZINTRO)
   }
 
@@ -74,6 +76,21 @@ export default function RegisterPage() {
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span className="field__label">
+              Do you have your clinic?
+            </span>
+            <select
+              className="field__input"
+              value={hasClinic}
+              onChange={(e) => setHasClinic(e.target.value)}
+            >
+              <option value="">Select an option…</option>
+              <option value="yes">Yes — I have my own clinic</option>
+              <option value="no">No — I don't have a clinic</option>
             </select>
           </label>
 

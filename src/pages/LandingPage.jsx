@@ -19,7 +19,7 @@ const CROSSES = [
 
 const PERKS = [
   { Icon: BoltIcon, tone: 'blue', title: 'Quick & Easy', text: 'Just 1 minute' },
-  { Icon: GiftIcon, tone: 'violet', title: 'Exciting Rewards', text: 'Choose what you like' },
+  { Icon: GiftIcon, tone: 'violet', title: 'Exciting Rewards', text: 'Spin the wheel to win' },
   { Icon: UsersIcon, tone: 'teal', title: 'Stronger Together', text: 'Better healthcare for all' },
 ]
 
@@ -82,7 +82,7 @@ export default function LandingPage() {
           <RevealItem as="p" className="landing-hero__lede">
             Answer 3 quick questions based on your specialty{' '}
             <br />
-            and choose a reward you love. It takes less than a minute.
+            then spin the wheel to win a reward. It takes less than a minute.
           </RevealItem>
 
           <RevealItem className="landing-hero__perks">

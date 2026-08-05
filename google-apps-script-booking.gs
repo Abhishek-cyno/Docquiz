@@ -54,10 +54,25 @@ var BOOKING_HEADERS = [
   'Booked At', 'Ref', 'Slot Key', 'Date', 'Time', 'Status',
   'Name', 'Email', 'Phone', 'Specialty', 'Category',
   'Score', 'Total', 'Percent', 'Gift', 'Answers (JSON)', 'Calendar Event ID',
+  // Appended at the end so already-deployed Bookings sheets keep every
+  // existing column where it is.
+  'Has Clinic',
 ];
 
 // Column indexes into BOOKING_HEADERS, 0-based. Used when reading rows back.
 var COL = { slotKey: 2, status: 5 };
+
+// The slots response only changes when someone books (or a script edit
+// changes Availability/Blackouts/Settings), so short-lived caching turns
+// most GETs into a cache read instead of four sheet reads + rebuilding 14
+// days of slots. doPost clears this the instant a booking lands, so nobody
+// sees a stale "available" for longer than it takes the lock to release.
+var SLOTS_CACHE_KEY = 'slots_v1';
+// The client's own background refresh runs every 60s (see SchedulePage.jsx),
+// so anything under that still guarantees a genuinely fresh rebuild at least
+// once per poll cycle — this just absorbs the bursts of requests in between
+// (page loads, focus events, several doctors on the page at once).
+var SLOTS_CACHE_TTL_SECONDS = 30;
 
 // ============================================================
 //  Web endpoints
@@ -73,7 +88,14 @@ function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || 'slots';
     if (action !== 'slots') return json({ ok: false, error: 'Unknown action: ' + action });
-    return json({ ok: true, timezone: TZ, days: buildDays() });
+
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get(SLOTS_CACHE_KEY);
+    if (cached) return rawJson(cached);
+
+    var body = JSON.stringify({ ok: true, timezone: TZ, days: buildDays() });
+    cache.put(SLOTS_CACHE_KEY, body, SLOTS_CACHE_TTL_SECONDS);
+    return rawJson(body);
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
   }
@@ -139,12 +161,17 @@ function doPost(e) {
       data.specialty || '', data.category || '',
       data.score, data.total, data.percent,
       data.gift || '', JSON.stringify(data.answers || []), eventId,
+      data.clinic || '',
     ]);
 
     // The slot is safely ours from here, so let go of the lock before the
     // slow stuff. Mail and webhooks take seconds; holding the lock through
     // them would queue up every other doctor trying to book.
     lock.releaseLock();
+
+    // Otherwise the next doctor's slot grid would still show this slot as
+    // open for up to SLOTS_CACHE_TTL_SECONDS.
+    try { CacheService.getScriptCache().remove(SLOTS_CACHE_KEY); } catch (cacheErr) {}
 
     var labels = { date: dateLabel(date), time: timeLabel(time) };
 
@@ -276,14 +303,22 @@ function isRealSlot(date, time) {
 /** Every slot key currently held by a non-cancelled booking. */
 function takenSlotKeys() {
   var sheet = bookingsSheet();
-  if (sheet.getLastRow() < 2) return {};
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {};
 
-  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, BOOKING_HEADERS.length).getValues();
+  // Only Slot Key (C) through Status (F) are needed here, but the full row
+  // also carries name/email/phone/the Answers JSON blob/etc — the biggest
+  // field in the sheet, once per booking ever made. Reading the full 18
+  // columns for every row means this call gets slower with every booking a
+  // sheet accumulates, for data none of it uses. This grows only 4 columns
+  // wide instead.
+  var width = COL.status - COL.slotKey + 1;
+  var rows = sheet.getRange(2, COL.slotKey + 1, lastRow - 1, width).getValues();
   var taken = {};
 
   rows.forEach(function (row) {
-    var key = normaliseSlotKey(row[COL.slotKey]);
-    var status = String(row[COL.status] || '').trim().toLowerCase();
+    var key = normaliseSlotKey(row[0]);
+    var status = String(row[COL.status - COL.slotKey] || '').trim().toLowerCase();
     // Anything not explicitly cancelled still occupies the slot — that way
     // a hand-typed row in the sheet blocks the time too.
     if (key && status !== 'cancelled') taken[key] = true;
@@ -547,7 +582,7 @@ function readBlackouts() {
 }
 
 function bookingsSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = spreadsheet();
   var sheet = ss.getSheetByName(TAB.bookings);
   if (!sheet) {
     sheet = ss.insertSheet(TAB.bookings);
@@ -564,8 +599,18 @@ function forceTextColumns(sheet) {
   sheet.getRange('C:E').setNumberFormat('@');
 }
 
+// A single doGet for /slots calls tab() via readSettings, readAvailability,
+// readBlackouts and takenSlotKeys — memoizing the spreadsheet handle turns
+// four SpreadsheetApp.getActiveSpreadsheet() round-trips into one. (Apps
+// Script gives each request a fresh global scope, so this only helps within
+// one invocation, not across requests — that's what SLOTS_CACHE_KEY is for.)
+function spreadsheet() {
+  if (!spreadsheet._ss) spreadsheet._ss = SpreadsheetApp.getActiveSpreadsheet();
+  return spreadsheet._ss;
+}
+
 function tab(name) {
-  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var sheets = spreadsheet().getSheets();
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].getName().trim().toLowerCase() === name.toLowerCase()) return sheets[i];
   }
@@ -650,7 +695,13 @@ function escapeHtml(s) {
 }
 
 function json(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+  return rawJson(JSON.stringify(obj));
+}
+
+/** Same response as json(), but for a body that's already a JSON string —
+ *  e.g. a cache hit — so it isn't parsed and re-stringified for nothing. */
+function rawJson(body) {
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================================

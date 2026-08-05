@@ -1,26 +1,90 @@
-[
-  {
-    "id": "premium-pen",
-    "title": "Premium Doctor's Pen Set",
-    "desc": "Elegant metal pen set, engraved.",
-    "emoji": "🖊️"
-  },
-  {
-    "id": "coffee-voucher",
-    "title": "Coffee Voucher",
-    "desc": "₹500 voucher for your favourite café.",
-    "emoji": "☕"
-  },
-  {
-    "id": "medical-journal",
-    "title": "Digital Journal Access",
-    "desc": "3-month premium clinical journal subscription.",
-    "emoji": "📚"
-  },
-  {
-    "id": "amazon-voucher",
-    "title": "Amazon Gift Card",
-    "desc": "₹500 shopping voucher.",
-    "emoji": "🎁"
-  }
-]
+{
+  "premium": [
+    {
+      "id": "smart-watch",
+      "title": "Smart Fitness Watch",
+      "short": "Smart Watch",
+      "desc": "Health-tracking smartwatch with heart-rate & SpO₂.",
+      "emoji": "⌚"
+    },
+    {
+      "id": "stethoscope",
+      "title": "Premium Cardiology Stethoscope",
+      "short": "Stethoscope",
+      "desc": "Professional dual-head cardiology stethoscope.",
+      "emoji": "🩺"
+    },
+    {
+      "id": "bp-monitor",
+      "title": "Digital BP Monitor",
+      "short": "BP Monitor",
+      "desc": "Clinic-grade automatic blood pressure monitor.",
+      "emoji": "💗"
+    },
+    {
+      "id": "amazon-2000",
+      "title": "₹2,000 Amazon Gift Card",
+      "short": "₹2000 Card",
+      "desc": "Shop anything you like on Amazon.",
+      "emoji": "🎁"
+    },
+    {
+      "id": "leather-bag",
+      "title": "Executive Leather Bag",
+      "short": "Leather Bag",
+      "desc": "Premium doctor's leather laptop bag.",
+      "emoji": "💼"
+    },
+    {
+      "id": "pulse-oximeter",
+      "title": "Fingertip Pulse Oximeter",
+      "short": "Oximeter",
+      "desc": "Accurate SpO₂ and pulse-rate monitor for your clinic.",
+      "emoji": "🫁"
+    }
+  ],
+  "standard": [
+    {
+      "id": "premium-pen",
+      "title": "Premium Doctor's Pen Set",
+      "short": "Pen Set",
+      "desc": "Elegant metal pen set, engraved.",
+      "emoji": "🖊️"
+    },
+    {
+      "id": "coffee-voucher",
+      "title": "Coffee Voucher",
+      "short": "Coffee ₹200",
+      "desc": "₹200 voucher for your favourite café.",
+      "emoji": "☕"
+    },
+    {
+      "id": "medical-journal",
+      "title": "Digital Journal Access",
+      "short": "Journal 3M",
+      "desc": "3-month premium clinical journal subscription.",
+      "emoji": "📚"
+    },
+    {
+      "id": "amazon-500",
+      "title": "₹500 Amazon Gift Card",
+      "short": "₹500 Card",
+      "desc": "₹500 shopping voucher.",
+      "emoji": "🎁"
+    },
+    {
+      "id": "desk-organiser",
+      "title": "Desk Organiser Set",
+      "short": "Desk Set",
+      "desc": "Compact organiser with notepad for your desk.",
+      "emoji": "🗂️"
+    },
+    {
+      "id": "cyno-kit",
+      "title": "Cyno Care Kit",
+      "short": "Care Kit",
+      "desc": "Branded mug, notebook and lapel pin.",
+      "emoji": "🧰"
+    }
+  ]
+}

@@ -573,27 +573,122 @@ select.field__input { appearance: none; cursor: pointer;
 }
 
 /* =========================================================
-   Gift grid
+   Spin & Win wheel
+   ---------------------------------------------------------
+   The wheel is one square SVG that fills whatever box it is
+   given, so its size is driven entirely by the `min()` on
+   .wheel below — no per-breakpoint geometry to keep in sync.
    ========================================================= */
-.gift__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 24px 0; }
-.gift__card {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-  background: #fff; border: 1.5px solid var(--ink-200); border-radius: var(--radius); padding: 22px 14px;
-  cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s;
+.spin-card { max-width: 760px; margin: 0 auto; width: 100%; }
+
+/* Sized against the card, never the viewport — a vw width ignores the app
+   and card padding and pushes the page into a horizontal scroll on phones. */
+.wheel {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  margin: 4px auto 0;
+  /* Room for the pointer above the disc, and for the ring around it. */
+  padding: 22px 8px 8px;
 }
-.gift__card:hover { border-color: var(--brand-400); transform: translateY(-3px); box-shadow: var(--shadow-sm); }
-.gift__card.is-active { border-color: var(--brand-600); background: var(--brand-50); box-shadow: 0 0 0 4px var(--brand-100); }
-.gift__emoji {
-  width: 60px; height: 60px; border-radius: 16px; display: grid; place-items: center; font-size: 30px;
-  background: var(--ink-50); border: 1px solid var(--ink-200);
+
+.wheel__pointer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--brand-700);
+  text-shadow: 0 4px 10px rgba(29, 78, 216, 0.35);
+  pointer-events: none;
 }
-.gift__card.is-active .gift__emoji { background: #fff; border-color: var(--brand-100); }
-.gift__name { font-weight: 700; font-size: 14.5px; color: var(--ink-900); }
-.gift__desc { font-size: 12px; color: var(--ink-500); }
-.gift__check {
-  position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; border-radius: 50%;
-  background: var(--brand-600); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center;
-  box-shadow: 0 6px 14px -6px var(--brand-600);
+
+.wheel__disc {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* A rotated square reports a larger axis-aligned box, so mid-spin the SVG
+     would otherwise widen the page's scroll width. The artwork is a circle
+     inscribed in that square, so clipping costs nothing. */
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    0 0 0 6px #fff,
+    0 0 0 8px var(--brand-100),
+    var(--shadow-lg);
+}
+.wheel__svg { display: block; width: 100%; height: 100%; }
+
+.wheel__hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Scales with the wheel but never drops below a comfortable thumb target. */
+  width: max(58px, 20%);
+  height: max(58px, 20%);
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: linear-gradient(150deg, var(--brand-600), var(--brand-700));
+  color: #fff;
+  font-size: clamp(12px, 3.4vw, 15px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(29, 78, 216, 0.85);
+  transition: transform .15s ease, box-shadow .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.wheel__hub:hover:not(:disabled) { transform: translate(-50%, -50%) scale(1.06); }
+.wheel__hub:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.95); }
+.wheel__hub:disabled { cursor: default; opacity: 0.92; }
+
+.spin-hint {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-500);
+  text-align: center;
+}
+
+.spin-result {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.spin-result__emoji {
+  flex: 0 0 auto;
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  font-size: 28px;
+  background: #fff;
+  border: 1px solid var(--brand-100);
+  border-radius: 16px;
+}
+.spin-result__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.spin-result__label {
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--brand-600);
+}
+.spin-result__title { font-size: 16px; font-weight: 800; color: var(--ink-900); }
+.spin-result__desc { font-size: 12.5px; color: var(--ink-500); }
+
+@media (max-width: 560px) {
+  .spin-result { flex-direction: column; text-align: center; align-items: center; gap: 10px; padding: 16px; }
+  .spin-result__text { align-items: center; }
+}
+
+@media (max-width: 380px) {
+  .spin-result__emoji { width: 48px; height: 48px; font-size: 24px; }
 }
 
 /* =========================================================
@@ -880,7 +975,6 @@ select.field__input { appearance: none; cursor: pointer;
 
 @media (max-width: 380px) {
   .stepper__label { display: none; }
-  .gift__grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* =========================================================

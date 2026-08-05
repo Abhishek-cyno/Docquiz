@@ -24,7 +24,11 @@ function doPost(e) {
       sheet.appendRow([
         'Submitted At', 'Name', 'Specialty', 'Category',
         'Score', 'Total', 'Percent', 'Gift',
-        'Meeting Date', 'Meeting Time', 'Answers (JSON)'
+        'Meeting Date', 'Meeting Time', 'Answers (JSON)',
+        // Appended at the end on purpose: sheets deployed before the clinic
+        // question exists already have the columns above, and inserting a
+        // column mid-row would misalign every historical row.
+        'Has Clinic'
       ]);
     }
 
@@ -39,7 +43,8 @@ function doPost(e) {
       data.gift || '',
       data.meetingDate || '',
       data.meetingTime || '',
-      JSON.stringify(data.answers || [])
+      JSON.stringify(data.answers || []),
+      data.clinic || ''
     ]);
 
     return ContentService

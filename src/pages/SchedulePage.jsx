@@ -105,6 +105,7 @@ export default function SchedulePage() {
       phone: phone.trim(),
       specialty: doctor.specialty,
       category: doctor.category,
+      clinic: doctor.hasClinic,
       score,
       total,
       percent: total ? Math.round((score / total) * 100) : 0,
@@ -148,7 +149,7 @@ export default function SchedulePage() {
       <div style={{ textAlign: 'center', marginBottom: 22 }}>
         <h2 className="card__title">Schedule a Meeting 📅</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>
-          Pick a date &amp; time that works for you. Our representative will visit you and hand over your gift <strong>{gift?.title}</strong> in person.
+          Pick a date &amp; time that works for you. Our representative will visit you and hand over the gift you won — <strong>{gift?.title}</strong> — in person.
         </p>
       </div>
 
