@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useFlow } from '../context/FlowContext.jsx'
 import { saveResponse } from '../utils/storage.js'
 import Float from '../components/motion/Float.jsx'
+import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import calImg from '../assets/cal.png'
 import meetImg from '../assets/meet.png'
 
@@ -38,6 +39,8 @@ export default function ScheduledPage() {
 
   return (
     <div className="scheduled">
+      <LoadingOverlay show={saving} />
+
       <div className="scheduled__art">
         <Float amplitude={6} duration={6.5}>
           <img className="art" src={calImg} alt="" />
@@ -72,6 +75,8 @@ export default function ScheduledPage() {
             <div className="details__row"><span className="ico">#️⃣</span> <span>Reference</span> <b style={{ marginLeft: 'auto' }}>{meeting.ref}</b></div>
           )}
         </motion.div>
+
+        <p className="card__sub">Our representative will get in touch with you soon.</p>
 
         <button className="btn btn--primary btn--lg" onClick={reset} disabled={saving}>
           {saving ? 'Saving…' : 'Go to Home'}

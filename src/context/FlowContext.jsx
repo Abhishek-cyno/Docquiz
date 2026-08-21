@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { pickRandom } from '../utils/shuffle.js'
 import { fetchAppData } from '../utils/fetchAppData.js'
+import { fetchGifts } from '../utils/fetchGifts.js'
 import { CONFIG } from '../config.js'
-import gifts from '../data/gifts.json'
 
 const FlowContext = createContext(null)
 
@@ -40,13 +40,18 @@ export function FlowProvider({ children }) {
   // config.js -> dataEndpoint) so non-developers can edit them without a
   // redeploy. Falls back to the bundled JSON if that's unset or fails.
   const [contentBank, setContentBank] = useState({ specialties: [], categories: [], questions: {} })
+  // Prize wheel catalog — lives entirely in the booking Sheet's Gifts tab
+  // (see fetchGifts.js). No bundled fallback: an unreachable endpoint
+  // leaves this empty rather than quietly serving stale hard-coded prizes.
+  const [gifts, setGifts] = useState({ premium: [], standard: [] })
   const [contentLoading, setContentLoading] = useState(true)
 
   useEffect(() => {
     let active = true
-    fetchAppData().then((data) => {
+    Promise.all([fetchAppData(), fetchGifts()]).then(([data, giftData]) => {
       if (active) {
         setContentBank(data)
+        setGifts(giftData)
         setContentLoading(false)
       }
     })
@@ -86,11 +91,11 @@ export function FlowProvider({ children }) {
       if (gifts.standard[i]) mixed.push(gifts.standard[i])
     }
     return mixed
-  }, [])
+  }, [gifts])
 
   const winnableGifts = useMemo(
     () => (hasClinic ? gifts.premium : gifts.standard),
-    [hasClinic]
+    [gifts, hasClinic]
   )
 
   function reset() {

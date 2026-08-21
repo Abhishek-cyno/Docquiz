@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import { fetchSlots, bookSlot } from '../utils/booking.js'
+import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -146,6 +147,9 @@ export default function SchedulePage() {
 
   return (
     <div className="card schedule-card">
+      <LoadingOverlay show={loading} />
+      <LoadingOverlay show={submitting} />
+
       <div style={{ textAlign: 'center', marginBottom: 22 }}>
         <h2 className="card__title">Schedule a Meeting 📅</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>
@@ -154,7 +158,7 @@ export default function SchedulePage() {
       </div>
 
       {loading ? (
-        <div className="slot-empty">Loading available times…</div>
+        <div className="slot-empty" />
       ) : loadError ? (
         <div className="slot-empty slot-empty--error">
           <p>{loadError}</p>
@@ -203,9 +207,13 @@ export default function SchedulePage() {
                   }
                   onClick={() => { setSelectedTime(slot.time); setNotice('') }}
                   disabled={!slot.available}
-                  title={slot.available ? '' : 'Already booked'}
+                  title={slot.available ? '' : (slot.capacity > 1 ? 'Fully booked' : 'Already booked')}
                 >
-                  {slot.label}
+                  <span className="slot__time">{slot.label}</span>
+                  {/* Older/un-redeployed booking scripts won't send capacity — falls back to the plain single-slot look. */}
+                  {slot.capacity > 1 && (
+                    <span className="slot__seats">{slot.available ? `${slot.remaining} left` : 'Full'}</span>
+                  )}
                 </button>
               ))}
             </div>

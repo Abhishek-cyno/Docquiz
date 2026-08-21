@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useFlow } from '../context/FlowContext.jsx'
 import { saveResponse } from '../utils/storage.js'
 import Float from '../components/motion/Float.jsx'
+import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import meetImg from '../assets/meet.png'
 
 /**
@@ -39,6 +40,8 @@ export default function ThankYouPage() {
 
   return (
     <div className="scheduled">
+      <LoadingOverlay show={saving} />
+
       <div className="scheduled__art">
         <Float amplitude={6} duration={6.5}>
           <img className="art" src={meetImg} alt="" />
@@ -58,7 +61,7 @@ export default function ThankYouPage() {
         <h2 className="card__title">Thank You for Participating! 🎉</h2>
         <p className="card__sub">
           Thanks{doctor.name ? `, ${doctor.name}` : ''} — your responses have been recorded.
-          Your gift will be delivered to you shortly.
+          Our representative will get in touch with you soon.
         </p>
 
         {gift && (

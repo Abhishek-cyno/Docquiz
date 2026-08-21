@@ -4,7 +4,7 @@ import GradientOrbs from '../components/motion/GradientOrbs.jsx'
 import { RevealGroup, RevealItem } from '../components/motion/Reveal.jsx'
 import DoctorScene from '../components/hero/DoctorScene.jsx'
 import HowItWorks from '../components/HowItWorks.jsx'
-import { BoltIcon, GiftIcon, UsersIcon, ShieldIcon, PlayIcon } from '../components/hero/MedicalIcons.jsx'
+import { BoltIcon, GiftIcon, UsersIcon, ShieldIcon, ClipboardIcon } from '../components/hero/MedicalIcons.jsx'
 import { EASE_OUT } from '../animations/motion.js'
 
 // Decorative faint crosses scattered across the hero background.
@@ -118,8 +118,8 @@ export default function LandingPage() {
             </motion.button>
 
             <button type="button" className="btn btn--quiet" onClick={scrollToHow}>
-              <PlayIcon width="20" height="20" />
-              Watch How It Works
+              <ClipboardIcon width="20" height="20" />
+              Know How It Works
             </button>
           </RevealItem>
         </RevealGroup>

@@ -4,10 +4,11 @@
  * This is the THIRD Apps Script in this project, and it owns everything
  * Cal.com used to do for us:
  *   1. Generates bookable slots from rules in a Sheet (no hard-coded times)
- *   2. Books a slot atomically, so the same slot can never go out twice
+ *   2. Books a slot atomically, so a slot's capacity can never be oversold
  *   3. Creates the Google Calendar event and invites the doctor
  *   4. Emails the confirmation FROM your own Google account
  *   5. Fires a webhook to Pabbly Connect, which sends the WhatsApp message
+ *   6. Serves the prize wheel's gift catalog from a Sheet too
  *
  * SETUP:
  * 1. Create a new Google Sheet (a fresh one — not the responses sheet and
@@ -31,6 +32,23 @@
  *      - Who has access: Anyone
  * 8. Copy the Web app URL into src/config.js -> bookingEndpoint.
  *
+ * MULTIPLE DOCTORS PER SLOT: the Availability tab has a `capacity` column
+ * (F). Leave it blank to inherit Settings ▸ defaultCapacity (starts at 1,
+ * i.e. today's one-booking-per-slot behaviour); fill in a number to let
+ * that specific row's slots hold that many bookings before greying out —
+ * e.g. set the 12:00 row's capacity to 10 while everything else stays at
+ * the default. A sheet deployed before this existed just keeps behaving
+ * as capacity-1 until you fill the column in.
+ *
+ * PRIZE WHEEL: `setupSheets` also creates a Gifts tab (tier | id | title |
+ * short | desc | emoji | active) — this is now the ONLY source for the
+ * wheel; there is no bundled fallback in the app anymore. Add, edit,
+ * reorder, deactivate or remove rows there — no redeploy needed, the app
+ * re-reads this tab on every load (behind a 5-minute cache). `tier` must
+ * be exactly "premium" or "standard". If this tab is empty or the
+ * endpoint is unreachable, the wheel has nothing to spin, so keep at
+ * least one active row per tier.
+ *
  * IMPORTANT: after ANY edit to this file you must Deploy ▸ Manage
  * deployments ▸ edit ▸ Version: New version. Saving alone does not
  * update the live URL.
@@ -46,6 +64,7 @@ var TAB = {
   blackouts: 'Blackouts',
   bookings: 'Bookings',
   settings: 'Settings',
+  gifts: 'Gifts',
 };
 
 var WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -74,6 +93,12 @@ var SLOTS_CACHE_KEY = 'slots_v1';
 // (page loads, focus events, several doctors on the page at once).
 var SLOTS_CACHE_TTL_SECONDS = 30;
 
+// The prize catalog only changes when someone edits the Gifts tab, so it can
+// sit in cache far longer than slots — 5 minutes just keeps a burst of page
+// loads from each re-reading the sheet.
+var GIFTS_CACHE_KEY = 'gifts_v1';
+var GIFTS_CACHE_TTL_SECONDS = 300;
+
 // ============================================================
 //  Web endpoints
 // ============================================================
@@ -83,22 +108,41 @@ var SLOTS_CACHE_TTL_SECONDS = 30;
  * Anything already booked, blacked out, in the past, or inside the
  * minimum-notice window is returned with available:false so the UI can
  * grey it out rather than hide it.
+ *
+ * GET ?action=gifts  ->  the prize wheel catalog, split into premium/
+ * standard tiers, read from the Gifts tab.
  */
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || 'slots';
-    if (action !== 'slots') return json({ ok: false, error: 'Unknown action: ' + action });
 
-    var cache = CacheService.getScriptCache();
-    var cached = cache.get(SLOTS_CACHE_KEY);
-    if (cached) return rawJson(cached);
+    if (action === 'slots') return slotsResponse();
+    if (action === 'gifts') return giftsResponse();
 
-    var body = JSON.stringify({ ok: true, timezone: TZ, days: buildDays() });
-    cache.put(SLOTS_CACHE_KEY, body, SLOTS_CACHE_TTL_SECONDS);
-    return rawJson(body);
+    return json({ ok: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
   }
+}
+
+function slotsResponse() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(SLOTS_CACHE_KEY);
+  if (cached) return rawJson(cached);
+
+  var body = JSON.stringify({ ok: true, timezone: TZ, days: buildDays() });
+  cache.put(SLOTS_CACHE_KEY, body, SLOTS_CACHE_TTL_SECONDS);
+  return rawJson(body);
+}
+
+function giftsResponse() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(GIFTS_CACHE_KEY);
+  if (cached) return rawJson(cached);
+
+  var body = JSON.stringify({ ok: true, gifts: readGifts() });
+  cache.put(GIFTS_CACHE_KEY, body, GIFTS_CACHE_TTL_SECONDS);
+  return rawJson(body);
 }
 
 /**
@@ -139,8 +183,13 @@ function doPost(e) {
       return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
     }
 
-    if (takenSlotKeys()[slotKey]) {
-      return json({ ok: false, reason: 'taken', error: 'That slot was just booked by someone else.' });
+    // Re-read capacity and the current count fresh, inside the lock, so two
+    // doctors racing for the last seat can't both slip through — only the
+    // first request to reach here for a slot at its limit gets rejected.
+    var capacity = capacityFor(date, time, readAvailability(), readSettings());
+    var bookedCount = takenSlotCounts()[slotKey] || 0;
+    if (bookedCount >= capacity) {
+      return json({ ok: false, reason: 'taken', error: 'That slot is fully booked.' });
     }
 
     var ref = makeRef();
@@ -215,13 +264,15 @@ function validate(data) {
 /**
  * Expands the Availability rules into concrete days and slots, then marks
  * each slot available or not. Booked slots are returned rather than
- * omitted, so the doctor can see the day is filling up.
+ * omitted, so the doctor can see the day is filling up. A slot only turns
+ * unavailable once its booking count reaches its capacity — see
+ * slotTimesFor for where that capacity comes from.
  */
 function buildDays() {
   var settings = readSettings();
   var rules = readAvailability();
   var blackouts = readBlackouts();
-  var taken = takenSlotKeys();
+  var counts = takenSlotCounts();
 
   var daysAhead = Number(settings.daysAhead) || 14;
   var minNoticeMs = (Number(settings.minNoticeHours) || 0) * 3600 * 1000;
@@ -236,15 +287,19 @@ function buildDays() {
 
     if (blackouts[date]) continue;
 
-    var times = slotTimesFor(date, rules, settings);
-    if (!times.length) continue;
+    var slotTimes = slotTimesFor(date, rules, settings);
+    if (!slotTimes.length) continue;
 
-    var slots = times.map(function (time) {
-      var key = date + 'T' + time;
+    var slots = slotTimes.map(function (t) {
+      var key = date + 'T' + t.time;
+      var booked = counts[key] || 0;
+      var remaining = Math.max(0, t.capacity - booked);
       return {
-        time: time,
-        label: timeLabel(time),
-        available: !taken[key] && slotStart(date, time).getTime() >= earliest,
+        time: t.time,
+        label: timeLabel(t.time),
+        capacity: t.capacity,
+        remaining: remaining,
+        available: remaining > 0 && slotStart(date, t.time).getTime() >= earliest,
       };
     });
 
@@ -262,7 +317,8 @@ function buildDays() {
 }
 
 /**
- * All start times for one date, from every Availability row for its weekday.
+ * All start times for one date, from every Availability row for its weekday
+ * — each paired with the capacity that row grants it.
  *
  * Note that the step here is the GAP between start times, not how long the
  * meeting runs. A 60-minute gap with a 30-minute meeting gives 10:00 and
@@ -273,6 +329,7 @@ function buildDays() {
 function slotTimesFor(date, rules, settings) {
   var weekday = weekdayOf(date);
   var defaultGap = Number(settings.gapMinutes || settings.slotMinutes) || 60;
+  var defaultCapacity = Math.floor(Number(settings.defaultCapacity)) || 1;
   var times = [];
   var seen = {};
 
@@ -280,13 +337,17 @@ function slotTimesFor(date, rules, settings) {
     if (rule.weekday !== weekday) return;
 
     var step = rule.gapMinutes || defaultGap;
+    var capacity = rule.capacity == null ? defaultCapacity : rule.capacity;
     for (var m = rule.startMin; m + step <= rule.endMin; m += step) {
       var time = minutesToTime(m);
-      if (!seen[time]) { seen[time] = true; times.push(time); }
+      // Two rows producing the same start time keep whichever comes first —
+      // mirrors how overlapping rows already resolve for `active`, rather
+      // than guessing whether a second capacity should replace or stack.
+      if (!seen[time]) { seen[time] = true; times.push({ time: time, capacity: capacity }); }
     }
   });
 
-  return times.sort();
+  return times.sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; });
 }
 
 /** Guards doPost against slots the UI could never legitimately have shown. */
@@ -297,11 +358,17 @@ function isRealSlot(date, time) {
   var minNoticeMs = (Number(settings.minNoticeHours) || 0) * 3600 * 1000;
   if (slotStart(date, time).getTime() < Date.now() + minNoticeMs) return false;
 
-  return slotTimesFor(date, readAvailability(), settings).indexOf(time) !== -1;
+  return slotTimesFor(date, readAvailability(), settings).some(function (t) { return t.time === time; });
 }
 
-/** Every slot key currently held by a non-cancelled booking. */
-function takenSlotKeys() {
+/** How many bookings one exact slot can hold; 0 if it isn't a real slot. */
+function capacityFor(date, time, rules, settings) {
+  var match = slotTimesFor(date, rules, settings).filter(function (t) { return t.time === time; })[0];
+  return match ? match.capacity : 0;
+}
+
+/** How many non-cancelled bookings currently hold each slot key. */
+function takenSlotCounts() {
   var sheet = bookingsSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return {};
@@ -314,17 +381,17 @@ function takenSlotKeys() {
   // wide instead.
   var width = COL.status - COL.slotKey + 1;
   var rows = sheet.getRange(2, COL.slotKey + 1, lastRow - 1, width).getValues();
-  var taken = {};
+  var counts = {};
 
   rows.forEach(function (row) {
     var key = normaliseSlotKey(row[0]);
     var status = String(row[COL.status - COL.slotKey] || '').trim().toLowerCase();
-    // Anything not explicitly cancelled still occupies the slot — that way
-    // a hand-typed row in the sheet blocks the time too.
-    if (key && status !== 'cancelled') taken[key] = true;
+    // Anything not explicitly cancelled still occupies a seat — that way a
+    // hand-typed row in the sheet counts against the slot too.
+    if (key && status !== 'cancelled') counts[key] = (counts[key] || 0) + 1;
   });
 
-  return taken;
+  return counts;
 }
 
 /**
@@ -554,7 +621,7 @@ function readAvailability() {
   var sheet = tab(TAB.availability);
   if (!sheet || sheet.getLastRow() < 2) return [];
 
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getDisplayValues()
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getDisplayValues()
     .map(function (r) {
       return {
         weekday: titleCase(String(r[0] || '').trim()),
@@ -562,11 +629,25 @@ function readAvailability() {
         endMin: timeToMinutes(r[2]),
         gapMinutes: Number(r[3]) || 0,
         active: !/^(no|false|0|off)$/i.test(String(r[4] || 'yes').trim()),
+        capacity: parseCapacity(r[5]),
       };
     })
     .filter(function (r) {
       return r.active && WEEKDAYS.indexOf(r.weekday) !== -1 && r.endMin > r.startMin;
     });
+}
+
+/**
+ * Blank means "inherit Settings ▸ defaultCapacity" (null, resolved later in
+ * slotTimesFor); an explicit 0 blocks that row's slots outright without
+ * having to flip `active` to no. Negative or unparsable values fall back to
+ * blank rather than silently opening a slot to unlimited bookings.
+ */
+function parseCapacity(value) {
+  var text = String(value == null ? '' : value).trim();
+  if (text === '') return null;
+  var n = Math.floor(Number(text));
+  return isNaN(n) || n < 0 ? null : n;
 }
 
 function readBlackouts() {
@@ -579,6 +660,50 @@ function readBlackouts() {
     if (key) out[key] = true;
   });
   return out;
+}
+
+/**
+ * Prize wheel catalog: columns are tier | id | title | short | desc |
+ * emoji | active. `tier` must be exactly "premium" or "standard" — any
+ * other value (blank, a typo, a note row) is silently skipped rather than
+ * crashing the whole wheel over one bad row. Row order is preserved, so
+ * dragging rows in the sheet reorders the wheel too.
+ */
+function readGifts() {
+  var sheet = tab(TAB.gifts);
+  var out = { premium: [], standard: [] };
+  if (!sheet || sheet.getLastRow() < 2) return out;
+
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getDisplayValues().forEach(function (r, i) {
+    var tier = String(r[0] || '').trim().toLowerCase();
+    if (tier !== 'premium' && tier !== 'standard') return;
+
+    var active = !/^(no|false|0|off)$/i.test(String(r[6] || 'yes').trim());
+    if (!active) return;
+
+    var title = String(r[2] || '').trim();
+    if (!title) return;
+
+    // SpinWheel matches the winning slice back to a prize by id (see
+    // pickWinnerIndex in src/utils/wheel.js), so every row needs one —
+    // fall back to a slug of the title, then the row position, so a blank
+    // id column still gets something stable rather than colliding on ''.
+    var id = String(r[1] || '').trim() || slugify(title) || (tier + '-' + (i + 1));
+
+    out[tier].push({
+      id: id,
+      title: title,
+      short: String(r[3] || '').trim() || title,
+      desc: String(r[4] || '').trim(),
+      emoji: String(r[5] || '').trim() || '🎁',
+    });
+  });
+
+  return out;
+}
+
+function slugify(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function bookingsSheet() {
@@ -600,7 +725,7 @@ function forceTextColumns(sheet) {
 }
 
 // A single doGet for /slots calls tab() via readSettings, readAvailability,
-// readBlackouts and takenSlotKeys — memoizing the spreadsheet handle turns
+// readBlackouts and takenSlotCounts — memoizing the spreadsheet handle turns
 // four SpreadsheetApp.getActiveSpreadsheet() round-trips into one. (Apps
 // Script gives each request a fresh global scope, so this only helps within
 // one invocation, not across requests — that's what SLOTS_CACHE_KEY is for.)
@@ -711,7 +836,13 @@ function rawJson(body) {
 function setupSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  seed(ss, TAB.availability, ['weekday', 'start', 'end', 'gapMinutes', 'active'], hourlyBlocks());
+  seed(ss, TAB.availability, ['weekday', 'start', 'end', 'gapMinutes', 'active', 'capacity'], hourlyBlocks());
+  // seed() only creates a tab that doesn't exist yet, so a sheet deployed
+  // before `capacity` was added keeps its original 5 columns forever unless
+  // something appends the 6th — this is that something. Existing rows and
+  // every other column are untouched; new rows just read as blank capacity,
+  // i.e. "inherit defaultCapacity", exactly like before this ran.
+  ensureColumns(ss.getSheetByName(TAB.availability), ['capacity']);
 
   seed(ss, TAB.blackouts, ['date (yyyy-MM-dd)', 'reason'], [['2026-08-15', 'Independence Day']]);
 
@@ -721,15 +852,24 @@ function setupSheets() {
     ['gapMinutes', 60],        // spacing between slot start times
     ['meetingMinutes', 30],    // how long the meeting itself runs
     ['minNoticeHours', 4],
+    // How many bookings one slot holds when its own Availability row leaves
+    // `capacity` blank. Bump a single row instead (e.g. 12:00 to 10) for a
+    // slot that should hold more than the rest.
+    ['defaultCapacity', 1],
     // No location setting: our rep travels to the doctor, so there is no
     // fixed venue to put on the invite.
     ['meetingTitle', 'Cyno Pharma — Doctor Meeting'],
     ['notifyEmail', ''],
     ['pabblyWebhook', ''],
   ]);
+  // Same problem as Availability above, but Settings is key/value rows
+  // rather than columns — add the row only if it's genuinely missing.
+  ensureSettingRow(ss.getSheetByName(TAB.settings), 'defaultCapacity', 1);
 
   seed(ss, TAB.bookings, BOOKING_HEADERS, []);
   forceTextColumns(ss.getSheetByName(TAB.bookings));
+
+  seed(ss, TAB.gifts, ['tier', 'id', 'title', 'short', 'desc', 'emoji', 'active'], starterGifts());
 
   SpreadsheetApp.getActiveSpreadsheet().toast('Tabs ready. Fill in Settings ▸ notifyEmail and pabblyWebhook.');
 }
@@ -758,7 +898,34 @@ function hourlyBlocks() {
 }
 
 function block(day, hour) {
-  return [day, pad(hour) + ':00', pad(hour + 1) + ':00', 60, 'yes'];
+  // Capacity left blank so every starter row inherits Settings ▸
+  // defaultCapacity — edit a specific row's capacity cell to raise just
+  // that time slot's limit.
+  return [day, pad(hour) + ':00', pad(hour + 1) + ':00', 60, 'yes', ''];
+}
+
+/**
+ * Seeds the Gifts tab with a starting catalog so a fresh sheet begins with
+ * a working wheel instead of an empty one. This tab is the app's only
+ * source for gifts now (the old bundled src/data/gifts.json is gone) — add,
+ * remove, rename or reorder rows here; the app re-reads this tab on every
+ * load.
+ */
+function starterGifts() {
+  return [
+    ['premium', 'smart-watch', 'Smart Fitness Watch', 'Smart Watch', 'Health-tracking smartwatch with heart-rate & SpO₂.', '⌚', 'yes'],
+    ['premium', 'stethoscope', 'Premium Cardiology Stethoscope', 'Stethoscope', 'Professional dual-head cardiology stethoscope.', '🩺', 'yes'],
+    ['premium', 'bp-monitor', 'Digital BP Monitor', 'BP Monitor', 'Clinic-grade automatic blood pressure monitor.', '💗', 'yes'],
+    ['premium', 'amazon-2000', '₹2,000 Amazon Gift Card', '₹2000 Card', 'Shop anything you like on Amazon.', '🎁', 'yes'],
+    ['premium', 'leather-bag', 'Executive Leather Bag', 'Leather Bag', 'Premium doctor\'s leather laptop bag.', '💼', 'yes'],
+    ['premium', 'pulse-oximeter', 'Fingertip Pulse Oximeter', 'Oximeter', 'Accurate SpO₂ and pulse-rate monitor for your clinic.', '🫁', 'yes'],
+    ['standard', 'premium-pen', 'Premium Doctor\'s Pen Set', 'Pen Set', 'Elegant metal pen set, engraved.', '🖊️', 'yes'],
+    ['standard', 'coffee-voucher', 'Coffee Voucher', 'Coffee ₹200', '₹200 voucher for your favourite café.', '☕', 'yes'],
+    ['standard', 'medical-journal', 'Digital Journal Access', 'Journal 3M', '3-month premium clinical journal subscription.', '📚', 'yes'],
+    ['standard', 'amazon-500', '₹500 Amazon Gift Card', '₹500 Card', '₹500 shopping voucher.', '🎁', 'yes'],
+    ['standard', 'desk-organiser', 'Desk Organiser Set', 'Desk Set', 'Compact organiser with notepad for your desk.', '🗂️', 'yes'],
+    ['standard', 'cyno-kit', 'Cyno Care Kit', 'Care Kit', 'Branded mug, notebook and lapel pin.', '🧰', 'yes'],
+  ];
 }
 
 /** Creates a tab with headers if missing; never touches existing data. */
@@ -771,4 +938,40 @@ function seed(ss, name, headers, rows) {
   sheet.setFrozenRows(1);
   rows.forEach(function (r) { sheet.appendRow(r); });
   sheet.autoResizeColumns(1, headers.length);
+}
+
+/**
+ * Appends any header from `headers` that row 1 doesn't already have,
+ * matched case/whitespace-insensitively so a manually-tweaked header still
+ * counts. This is what lets a NEW column show up on a tab that seed()
+ * would otherwise never touch again because it already exists. Existing
+ * columns, and every existing row's data in them, are left exactly as
+ * they were — new cells in the appended column just come back blank.
+ */
+function ensureColumns(sheet, headers) {
+  if (!sheet) return;
+
+  var lastCol = sheet.getLastColumn();
+  var existing = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0] : [];
+  var have = existing.map(function (h) { return String(h).trim().toLowerCase(); });
+
+  headers.forEach(function (header) {
+    if (have.indexOf(header.toLowerCase()) !== -1) return;
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+    have.push(header.toLowerCase());
+  });
+}
+
+/** Same idea as ensureColumns, but for a key/value Settings-style tab. */
+function ensureSettingRow(sheet, key, value) {
+  if (!sheet) return;
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var keys = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues()
+      .map(function (r) { return String(r[0]).trim().toLowerCase(); });
+    if (keys.indexOf(key.toLowerCase()) !== -1) return;
+  }
+
+  sheet.appendRow([key, value]);
 }

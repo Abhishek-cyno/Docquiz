@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useFlow, STEPS } from './context/FlowContext.jsx'
 import { CONFIG } from './config.js'
 import Stepper from './components/Stepper.jsx'
+import LoadingOverlay from './components/motion/LoadingOverlay.jsx'
 
 import LandingPage from './pages/LandingPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
@@ -32,12 +33,14 @@ const screens = {
 }
 
 export default function App() {
-  const { step } = useFlow()
+  const { step, contentLoading } = useFlow()
   const Screen = screens[step] || LandingPage
   const isLanding = step === STEPS.LANDING
 
   return (
     <div className="app">
+      <LoadingOverlay show={contentLoading} />
+
       <header className="app__header">
         <div className="app__header-inner">
           <div className="brand">

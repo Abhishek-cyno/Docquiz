@@ -254,6 +254,38 @@ button, input, select { font-family: inherit; }
 .btn:hover .btn__arrow { transform: translateX(3px); }
 
 /* =========================================================
+   Loading spinner
+   ---------------------------------------------------------
+   Classic ring of fading ticks in the brand blue — each bar is
+   placed radially with its opacity baked in, and the whole
+   group rotates together.
+   ========================================================= */
+.loader {
+  position: relative;
+  display: inline-block;
+}
+.loader__tick {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 999px;
+  background: var(--brand-600);
+}
+
+/* =========================================================
+   Loading overlay
+   ---------------------------------------------------------
+   Full-screen blurred backdrop with a single revolving ring
+   centered on screen — no card, no text.
+   ========================================================= */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, 0.28);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+}
+
+/* =========================================================
    Landing hero — full screen
    ========================================================= */
 .hero__note { font-size: 13px; color: var(--ink-400); display: flex; align-items: center; gap: 8px; }
@@ -813,6 +845,16 @@ select.field__input { appearance: none; cursor: pointer;
   border-color: var(--ink-200); border-style: dashed;
   text-decoration: line-through; cursor: not-allowed;
 }
+/* Seat count for multi-capacity slots — only rendered when capacity > 1,
+   so a plain 1-seat slot keeps its original single-line look. */
+.slot__time { display: block; }
+.slot__seats {
+  display: block; margin-top: 3px;
+  font-size: 11px; font-weight: 600; color: var(--ink-500);
+  text-decoration: none; /* stay legible even when the parent is struck through */
+}
+.slot.is-active .slot__seats { color: rgba(255, 255, 255, .85); }
+.slot.is-taken .slot__seats { color: var(--ink-400); }
 
 .slot-details {
   display: grid; gap: 14px;
