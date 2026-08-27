@@ -25,10 +25,10 @@ function doPost(e) {
         'Submitted At', 'Name', 'Specialty', 'Category',
         'Score', 'Total', 'Percent', 'Gift',
         'Meeting Date', 'Meeting Time', 'Answers (JSON)',
-        // Appended at the end on purpose: sheets deployed before the clinic
-        // question exists already have the columns above, and inserting a
+        // Appended at the end on purpose: sheets deployed before these
+        // columns existed already have the columns above, and inserting a
         // column mid-row would misalign every historical row.
-        'Has Clinic'
+        'Has Clinic', 'Email', 'Phone'
       ]);
     }
 
@@ -44,7 +44,9 @@ function doPost(e) {
       data.meetingDate || '',
       data.meetingTime || '',
       JSON.stringify(data.answers || []),
-      data.clinic || ''
+      data.clinic || '',
+      data.email || '',
+      data.phone || ''
     ]);
 
     return ContentService

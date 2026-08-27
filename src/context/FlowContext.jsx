@@ -21,6 +21,7 @@ export const STEPS = {
   GIFT: 'gift',
   SCHEDULE: 'schedule',
   SCHEDULED: 'scheduled',
+  CONTACT: 'contact',
   THANKYOU: 'thankyou',
 }
 
@@ -43,7 +44,10 @@ export function FlowProvider({ children }) {
   // Prize wheel catalog — lives entirely in the booking Sheet's Gifts tab
   // (see fetchGifts.js). No bundled fallback: an unreachable endpoint
   // leaves this empty rather than quietly serving stale hard-coded prizes.
-  const [gifts, setGifts] = useState({ premium: [], standard: [] })
+  // superpremium/consolation are optional tiers (jackpot prizes, and a
+  // "no real prize" outcome) — see the PRIZE WHEEL note in
+  // google-apps-script-booking.gs.
+  const [gifts, setGifts] = useState({ premium: [], standard: [], superpremium: [], consolation: [] })
   const [contentLoading, setContentLoading] = useState(true)
 
   useEffect(() => {
@@ -80,21 +84,25 @@ export function FlowProvider({ children }) {
   // lower-value set and we simply ship the gift — no meeting.
   const hasClinic = doctor.hasClinic === 'yes'
 
-  // Everyone sees the same wheel with every prize on it — premium and standard
-  // interleaved so neither tier sits in an obvious block. Only `winnableGifts`
-  // differs, and that decides which slice the wheel is allowed to stop on.
+  // Everyone sees the same wheel with every prize on it — the clinic-owner
+  // side (jackpot + premium) and the everyone-else side (standard +
+  // consolation) interleaved so neither side sits in an obvious block. Only
+  // `winnableGifts` differs, and that decides which slice the wheel is
+  // allowed to stop on.
   const giftWheel = useMemo(() => {
+    const premiumSide = [...gifts.superpremium, ...gifts.premium]
+    const standardSide = [...gifts.standard, ...gifts.consolation]
     const mixed = []
-    const longest = Math.max(gifts.premium.length, gifts.standard.length)
+    const longest = Math.max(premiumSide.length, standardSide.length)
     for (let i = 0; i < longest; i++) {
-      if (gifts.premium[i]) mixed.push(gifts.premium[i])
-      if (gifts.standard[i]) mixed.push(gifts.standard[i])
+      if (premiumSide[i]) mixed.push(premiumSide[i])
+      if (standardSide[i]) mixed.push(standardSide[i])
     }
     return mixed
   }, [gifts])
 
   const winnableGifts = useMemo(
-    () => (hasClinic ? gifts.premium : gifts.standard),
+    () => (hasClinic ? [...gifts.superpremium, ...gifts.premium] : [...gifts.standard, ...gifts.consolation]),
     [gifts, hasClinic]
   )
 

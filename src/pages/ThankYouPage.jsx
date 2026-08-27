@@ -8,12 +8,14 @@ import meetImg from '../assets/meet.png'
 
 /**
  * End of the road for doctors without their own clinic: they keep the gift the
- * wheel gave them, but there is no rep visit to book. Since this branch never
- * reaches ScheduledPage, the response has to be written here instead —
- * without it these entries would never land in the sheet at all.
+ * wheel gave them, but there is no rep visit to book. ContactPage already
+ * recorded name/email/phone/gift into the Bookings sheet (the authoritative
+ * write, same as a real booking); this is the legacy backup write into the
+ * separate responses sheet, mirroring what ScheduledPage does for the
+ * clinic-owner branch. `meeting.email`/`meeting.phone` come from ContactPage.
  */
 export default function ThankYouPage() {
-  const { doctor, score, questions, answers, gift, reset } = useFlow()
+  const { doctor, score, questions, answers, gift, meeting, reset } = useFlow()
   const [saving, setSaving] = useState(true)
   const saved = useRef(false)
 
@@ -23,6 +25,8 @@ export default function ThankYouPage() {
     ;(async () => {
       await saveResponse({
         name: doctor.name,
+        email: meeting.email,
+        phone: meeting.phone,
         specialty: doctor.specialty,
         category: doctor.category,
         clinic: doctor.hasClinic,
@@ -61,7 +65,7 @@ export default function ThankYouPage() {
         <h2 className="card__title">Thank You for Participating! 🎉</h2>
         <p className="card__sub">
           Thanks{doctor.name ? `, ${doctor.name}` : ''} — your responses have been recorded.
-          Our representative will get in touch with you soon.
+          Our team will reach out on WhatsApp or email soon.
         </p>
 
         {gift && (
@@ -71,18 +75,27 @@ export default function ThankYouPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="details__row">
-              <span className="ico">{gift.emoji}</span> <span>Your gift</span>
-              <b style={{ marginLeft: 'auto' }}>{gift.title}</b>
-            </div>
+            {gift.tier === 'consolation' ? (
+              <div className="details__row">
+                <span className="ico">{gift.emoji}</span> <span>Result</span>
+                <b style={{ marginLeft: 'auto' }}>{gift.title}</b>
+              </div>
+            ) : (
+              <div className="details__row">
+                <span className="ico">{gift.emoji}</span> <span>Your gift</span>
+                <b style={{ marginLeft: 'auto' }}>{gift.title}</b>
+              </div>
+            )}
             <div className="details__row">
               <span className="ico">🏅</span> <span>Quiz score</span>
               <b style={{ marginLeft: 'auto' }}>{score}/{questions.length}</b>
             </div>
-            <div className="details__row">
-              <span className="ico">🚚</span> <span>Delivery</span>
-              <b style={{ marginLeft: 'auto' }}>Our team will reach out</b>
-            </div>
+            {gift.tier !== 'consolation' && (
+              <div className="details__row">
+                <span className="ico">🚚</span> <span>Delivery</span>
+                <b style={{ marginLeft: 'auto' }}>Our team will reach out</b>
+              </div>
+            )}
           </motion.div>
         )}
 

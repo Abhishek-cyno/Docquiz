@@ -35,6 +35,63 @@ export async function fetchSlots() {
 }
 
 /**
+ * Spends one unit of a gift's stock the moment the wheel lands on it (see
+ * GiftPage.jsx) — this is what lets a limited gift actually run out across
+ * every doctor spinning, not just this one browser tab. Best-effort: a
+ * failure here (network hiccup, endpoint unset) doesn't undo the win the
+ * doctor already saw land, it just means that one unit doesn't get debited
+ * from the sheet.
+ */
+export async function claimGift(giftId) {
+  if (!CONFIG.bookingEndpoint || !giftId) return { ok: false }
+
+  try {
+    const res = await fetch(CONFIG.bookingEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'claimGift', id: giftId }),
+      redirect: 'follow',
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (e) {
+    console.warn('Could not record gift claim', e)
+    return { ok: false, reason: 'network' }
+  }
+}
+
+/**
+ * Records a doctor's contact details and quiz/gift result when there's no
+ * clinic for a rep to visit, so there's no slot to book — see ContactPage.jsx
+ * and registerGift() in google-apps-script-booking.gs. Same endpoint and
+ * same "read the real response, don't fire-and-forget" reasoning as
+ * bookSlot(), just without a slot.
+ */
+export async function registerGift(payload) {
+  if (!CONFIG.bookingEndpoint) {
+    return { ok: false, reason: 'config', error: 'Booking endpoint is not configured.' }
+  }
+
+  try {
+    const res = await fetch(CONFIG.bookingEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'registerGift', ...payload }),
+      redirect: 'follow',
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (e) {
+    console.warn('Registering gift-winner details failed', e)
+    return {
+      ok: false,
+      reason: 'network',
+      error: "We couldn't reach the server. Please check your connection and try again.",
+    }
+  }
+}
+
+/**
  * Claims a slot. Resolves with the server's verdict rather than throwing
  * on a rejected booking — `taken` is an expected outcome, not an error,
  * and the UI handles it by refreshing the grid.

@@ -653,6 +653,17 @@ select.field__input { appearance: none; cursor: pointer;
 }
 .wheel__svg { display: block; width: 100%; height: 100%; }
 
+/* The superpremium slice(s) — gold gradient fill is set inline via
+   colorForItem() in SpinWheel.jsx, this just adds the pulsing glow on top. */
+@keyframes wheelSuperGlow {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(251, 191, 36, 0)); }
+  50% { filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.9)); }
+}
+.wheel__slice--super { animation: wheelSuperGlow 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .wheel__slice--super { animation: none; }
+}
+
 .wheel__hub {
   position: absolute;
   top: 50%;
@@ -713,6 +724,20 @@ select.field__input { appearance: none; cursor: pointer;
 }
 .spin-result__title { font-size: 16px; font-weight: 800; color: var(--ink-900); }
 .spin-result__desc { font-size: 12.5px; color: var(--ink-500); }
+
+/* Jackpot reveal — same layout as .spin-result, gold instead of brand blue. */
+.spin-result--super {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 1px #fbbf24 inset, 0 8px 20px -12px rgba(180, 83, 9, 0.45);
+}
+.spin-result--super .spin-result__emoji { border-color: #fbbf24; }
+.spin-result--super .spin-result__label { color: #b45309; }
+
+/* Consolation reveal — muted, so it visibly reads as "no real prize" rather
+   than a normal win. */
+.spin-result--consolation { background: var(--ink-50); border-color: var(--ink-200); }
+.spin-result--consolation .spin-result__label { color: var(--ink-500); }
 
 @media (max-width: 560px) {
   .spin-result { flex-direction: column; text-align: center; align-items: center; gap: 10px; padding: 16px; }

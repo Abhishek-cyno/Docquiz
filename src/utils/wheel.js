@@ -5,6 +5,11 @@
  * for them (clinic owners win the premium prizes, everyone else the standard
  * ones). Kept out of the component so it stays a plain, testable function.
  *
+ * The draw is weighted by each item's `weight` (set in the Gifts sheet, see
+ * google-apps-script-booking.gs) rather than uniform — a gift with no weight
+ * defaults to 1, so a wheel where nobody has set one behaves exactly like a
+ * plain uniform draw.
+ *
  * @param items    every slice on the wheel, in display order
  * @param winnable the subset this doctor may win; empty/absent means all
  * @param rng      injectable for tests; defaults to Math.random
@@ -23,7 +28,19 @@ export function pickWinnerIndex(items, winnable, rng = Math.random) {
   // A wheel nobody can win on would dead-end the flow, so an empty or
   // non-matching `winnable` falls back to the whole wheel.
   const pool = eligible.length ? eligible : items.map((_, i) => i)
-  return pool[Math.floor(rng() * pool.length)]
+
+  const weights = pool.map((i) => {
+    const w = Number(items[i].weight)
+    return Number.isFinite(w) && w > 0 ? w : 1
+  })
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+
+  let r = rng() * totalWeight
+  for (let k = 0; k < pool.length; k++) {
+    r -= weights[k]
+    if (r < 0) return pool[k]
+  }
+  return pool[pool.length - 1] // floating-point rounding safety net
 }
 
 /**

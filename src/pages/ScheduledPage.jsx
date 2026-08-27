@@ -22,6 +22,8 @@ export default function ScheduledPage() {
     ;(async () => {
       await saveResponse({
         name: doctor.name,
+        email: meeting.email,
+        phone: meeting.phone,
         specialty: doctor.specialty,
         category: doctor.category,
         clinic: doctor.hasClinic,

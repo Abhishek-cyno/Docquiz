@@ -9,6 +9,10 @@
  *   4. Emails the confirmation FROM your own Google account
  *   5. Fires a webhook to Pabbly Connect, which sends the WhatsApp message
  *   6. Serves the prize wheel's gift catalog from a Sheet too
+ *   7. Records contact details for gift winners who have no clinic (so
+ *      there's no rep visit to book) into the same Bookings sheet, with
+ *      the slot columns left blank and Status "no-visit" — see
+ *      registerGift() and ContactPage.jsx
  *
  * SETUP:
  * 1. Create a new Google Sheet (a fresh one — not the responses sheet and
@@ -41,13 +45,37 @@
  * as capacity-1 until you fill the column in.
  *
  * PRIZE WHEEL: `setupSheets` also creates a Gifts tab (tier | id | title |
- * short | desc | emoji | active) — this is now the ONLY source for the
- * wheel; there is no bundled fallback in the app anymore. Add, edit,
- * reorder, deactivate or remove rows there — no redeploy needed, the app
- * re-reads this tab on every load (behind a 5-minute cache). `tier` must
- * be exactly "premium" or "standard". If this tab is empty or the
- * endpoint is unreachable, the wheel has nothing to spin, so keep at
- * least one active row per tier.
+ * short | desc | emoji | active | stock | weight) — this is now the ONLY
+ * source for the wheel; there is no bundled fallback in the app anymore.
+ * Add, edit, reorder, deactivate or remove rows there — no redeploy
+ * needed, the app re-reads this tab on every load (behind a 5-minute
+ * cache). `tier` must be exactly one of:
+ *   - "superpremium" — the rare, jackpot-tier prizes. Only clinic owners
+ *     can win these (same audience as "premium"), rendered on the wheel
+ *     in gold with a subtle glow so they visibly stand out. Give these a
+ *     low `weight` and a small `stock` — they're meant to be rare.
+ *   - "premium"  — clinic owners' regular prize pool.
+ *   - "standard" — everyone else's regular prize pool.
+ *   - "consolation" — a "no real prize" outcome mixed into the standard
+ *     pool (e.g. "Better Luck Next Time"), rendered in muted grey. The app
+ *     recognises this tier specifically and skips the "your gift is being
+ *     delivered" messaging for it — see ThankYouPage.jsx.
+ * If this tab is empty or the endpoint is unreachable, the wheel has
+ * nothing to spin, so keep at least one active row per tier you use.
+ *
+ * `stock` is how many units are left. Leave it blank for unlimited; set a
+ * number to cap it — the wheel stops offering that gift once it hits 0
+ * (same as flipping `active` to no, but automatic). Every spin claims one
+ * unit the moment the wheel lands on it (see the `claimGift` action
+ * below), under the same lock used for bookings, so two doctors racing for
+ * the last unit can't both win it.
+ *
+ * `weight` sets how likely a gift is relative to the others in its tier —
+ * bigger number, more likely. Leave it blank (or 0) to default to 1, i.e.
+ * an even chance against every other blank-weight row. These don't need
+ * to add up to 100 or any particular total; only the ratio between rows
+ * matters, so you can tune one gift's odds without re-balancing every
+ * other row.
  *
  * IMPORTANT: after ANY edit to this file you must Deploy ▸ Manage
  * deployments ▸ edit ▸ Version: New version. Saving alone does not
@@ -79,7 +107,7 @@ var BOOKING_HEADERS = [
 ];
 
 // Column indexes into BOOKING_HEADERS, 0-based. Used when reading rows back.
-var COL = { slotKey: 2, status: 5 };
+var COL = { ref: 1, slotKey: 2, date: 3, time: 4, status: 5, email: 7, phone: 8, gift: 14 };
 
 // The slots response only changes when someone books (or a script edit
 // changes Availability/Blackouts/Settings), so short-lived caching turns
@@ -153,14 +181,25 @@ function giftsResponse() {
  * free. So the check that actually matters happens here, inside a script
  * lock: re-read the sheet, and only append if the slot is still genuinely
  * open. The loser gets {ok:false, reason:'taken'} and picks again.
+ *
+ * POST { action:'claimGift', id } -> decrements one unit of stock for the
+ * gift the wheel just landed on. See claimGift() below.
+ *
+ * POST { action:'registerGift', name, email, phone, ... } -> records a
+ * doctor who won a gift but has no clinic for a rep to visit, so there's no
+ * slot to book. See registerGift() below.
  */
 function doPost(e) {
   var lock = LockService.getScriptLock();
 
   try {
     var data = JSON.parse(e.postData.contents);
-    if (data.action && data.action !== 'book') {
-      return json({ ok: false, error: 'Unknown action: ' + data.action });
+    var action = data.action || 'book';
+
+    if (action === 'claimGift') return claimGift(data);
+    if (action === 'registerGift') return registerGift(data);
+    if (action !== 'book') {
+      return json({ ok: false, error: 'Unknown action: ' + action });
     }
 
     var invalid = validate(data);
@@ -181,6 +220,27 @@ function doPost(e) {
     // genuinely cannot get the lock, failing is far better than racing.
     if (!lock.tryLock(30000)) {
       return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
+    }
+
+    // A doctor who already has a live row (by email or phone) gets THAT
+    // booking back rather than a second one — see findExistingBooking().
+    // This is what stops a replayed quiz from appending a new row every
+    // time, whether or not the wheel handed them a different gift this
+    // time round.
+    var existing = findExistingBooking(data.email, data.phone);
+    if (existing) {
+      lock.releaseLock();
+      return json({
+        ok: true,
+        alreadyBooked: true,
+        ref: existing.ref,
+        date: existing.date,
+        time: existing.time,
+        dateLabel: existing.date ? dateLabel(existing.date) : '',
+        timeLabel: existing.time ? timeLabel(existing.time) : '',
+        gift: existing.gift,
+        timezone: TZ,
+      });
     }
 
     // Re-read capacity and the current count fresh, inside the lock, so two
@@ -247,14 +307,116 @@ function doPost(e) {
   }
 }
 
+/**
+ * Spends one unit of a gift's stock. Called the instant the wheel settles
+ * (see GiftPage.jsx) — the prize is considered won right there, not later
+ * when the doctor finishes booking, so stock has to be debited now or a
+ * limited gift could be handed out more times than it has units for.
+ *
+ * Uses its own lock rather than the one doPost declares, since it returns
+ * before that lock is ever taken — safe, because LockService locks are
+ * scoped to the script, not to one Lock object.
+ */
+function claimGift(data) {
+  var lock = LockService.getScriptLock();
+  var id = String(data.id || '').trim();
+  if (!id) return json({ ok: false, error: 'Missing gift id.' });
+
+  if (!lock.tryLock(30000)) {
+    return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
+  }
+
+  try {
+    var sheet = tab(TAB.gifts);
+    if (!sheet || sheet.getLastRow() < 2) return json({ ok: false, error: 'Gift not found.' });
+
+    var lastRow = sheet.getLastRow();
+    var rows = sheet.getRange(2, 1, lastRow - 1, 8).getDisplayValues();
+
+    for (var i = 0; i < rows.length; i++) {
+      var tier = String(rows[i][0] || '').trim().toLowerCase();
+      var title = String(rows[i][2] || '').trim();
+      var rowId = String(rows[i][1] || '').trim() || slugify(title) || (tier + '-' + (i + 1));
+      if (rowId !== id) continue;
+
+      var stock = parseNullableInt(rows[i][7]);
+      if (stock === null) return json({ ok: true, remaining: null }); // unlimited — nothing to spend
+
+      if (stock <= 0) return json({ ok: false, reason: 'outofstock', error: 'That gift just ran out.' });
+
+      sheet.getRange(i + 2, 8).setValue(stock - 1);
+      try { CacheService.getScriptCache().remove(GIFTS_CACHE_KEY); } catch (cacheErr) {}
+      return json({ ok: true, remaining: stock - 1 });
+    }
+
+    return json({ ok: false, error: 'Gift not found.' });
+  } finally {
+    try { lock.releaseLock(); } catch (ignored) {}
+  }
+}
+
 function validate(data) {
+  var contactError = validateContact(data);
+  if (contactError) return contactError;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.date || '').trim())) return 'Pick a date.';
+  if (!/^\d{2}:\d{2}$/.test(String(data.time || '').trim())) return 'Pick a time.';
+  return null;
+}
+
+/** Shared by validate() (a real booking) and registerGift() (no slot to pick). */
+function validateContact(data) {
   if (!data) return 'Empty request.';
   if (!String(data.name || '').trim()) return 'Name is required.';
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(data.email || '').trim())) return 'A valid email is required.';
   if (digitsOnly(data.phone).length < 10) return 'A valid WhatsApp number is required.';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.date || '').trim())) return 'Pick a date.';
-  if (!/^\d{2}:\d{2}$/.test(String(data.time || '').trim())) return 'Pick a time.';
   return null;
+}
+
+/**
+ * Records a doctor who won a gift but has no clinic to be visited at — the
+ * ContactPage.jsx counterpart to a real booking. Written into the same
+ * Bookings sheet, with the slot columns left blank and status 'no-visit', so
+ * this stays the one place a has-no-clinic doctor's contact details, quiz
+ * result and gift ever land — the old fire-and-forget write into the
+ * separate responses sheet (see storage.js) never captured phone/email at
+ * all and can't report back if it failed.
+ */
+function registerGift(data) {
+  var invalid = validateContact(data);
+  if (invalid) return json({ ok: false, reason: 'invalid', error: invalid });
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
+  }
+
+  var existing;
+  var ref;
+
+  try {
+    // Same replay guard as the 'book' action — see findExistingBooking().
+    existing = findExistingBooking(data.email, data.phone);
+    if (!existing) {
+      ref = makeRef();
+      bookingsSheet().appendRow([
+        new Date(), ref, '', '', '', 'no-visit',
+        data.name || '', data.email || '', data.phone || '',
+        data.specialty || '', data.category || '',
+        data.score, data.total, data.percent,
+        data.gift || '', JSON.stringify(data.answers || []), '',
+        data.clinic || 'no',
+      ]);
+    }
+  } finally {
+    try { lock.releaseLock(); } catch (ignored) {}
+  }
+
+  if (existing) return json({ ok: true, alreadyRegistered: true, ref: existing.ref, gift: existing.gift });
+
+  try { sendNoVisitEmails(data, ref); }
+  catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
+
+  return json({ ok: true, ref: ref });
 }
 
 // ============================================================
@@ -392,6 +554,46 @@ function takenSlotCounts() {
   });
 
   return counts;
+}
+
+/**
+ * The one row a doctor already has in Bookings, matched by email OR phone
+ * (whichever one matches — a typo in one shouldn't defeat this), ignoring
+ * cancelled rows. Used by both the 'book' and 'registerGift' actions so
+ * replaying the quiz — with or without a clinic, any number of times —
+ * hands back the SAME record instead of appending a new one each time. The
+ * sheet is meant to hold one row per doctor; whichever was saved first wins.
+ */
+function findExistingBooking(email, phone) {
+  var sheet = bookingsSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  var normEmail = String(email || '').trim().toLowerCase();
+  var normPhone = digitsOnly(phone);
+  if (!normEmail && !normPhone) return null;
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, BOOKING_HEADERS.length).getDisplayValues();
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var status = String(r[COL.status] || '').trim().toLowerCase();
+    if (status === 'cancelled') continue;
+
+    var rowEmail = String(r[COL.email] || '').trim().toLowerCase();
+    var rowPhone = digitsOnly(r[COL.phone]);
+
+    if ((normEmail && rowEmail === normEmail) || (normPhone && rowPhone === normPhone)) {
+      return {
+        ref: r[COL.ref],
+        date: String(r[COL.date] || ''),
+        time: String(r[COL.time] || ''),
+        gift: String(r[COL.gift] || ''),
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -550,6 +752,70 @@ function doctorEmailHtml(data, labels, ref, settings) {
   ].join('');
 }
 
+/** Confirmation + admin notification for a gift winner with no clinic to visit. */
+function sendNoVisitEmails(data, ref) {
+  var settings = readSettings();
+  var brand = settings.brandName || 'Cyno Pharma';
+
+  MailApp.sendEmail({
+    to: data.email,
+    name: brand,
+    subject: 'Your gift is confirmed — ' + brand,
+    htmlBody: noVisitEmailHtml(data, ref, settings),
+    body: [
+      'Hi ' + (data.name || 'Doctor') + ',',
+      '',
+      'Thanks for taking the ' + brand + ' quiz! Your gift — ' + (data.gift || '—') + ' — is confirmed.',
+      'Our team will reach out on WhatsApp or email to arrange delivery.',
+      '',
+      'Reference: ' + ref,
+      '',
+      brand,
+    ].join('\n'),
+  });
+
+  if (settings.notifyEmail) {
+    MailApp.sendEmail({
+      to: settings.notifyEmail,
+      name: brand + ' Gifts',
+      subject: 'New gift winner (no clinic): ' + (data.name || 'Doctor'),
+      htmlBody: [
+        '<h3>New gift winner — no rep visit</h3>',
+        '<table cellpadding="6" style="border-collapse:collapse;font:14px system-ui">',
+        row('Reference', ref),
+        row('Name', data.name),
+        row('Email', data.email),
+        row('WhatsApp', data.phone),
+        row('Specialty', (data.specialty || '') + ' (' + (data.category || '') + ')'),
+        row('Quiz score', data.score + '/' + data.total + ' (' + data.percent + '%)'),
+        row('Gift to send', data.gift || '—'),
+        '</table>',
+      ].join(''),
+    });
+  }
+}
+
+function noVisitEmailHtml(data, ref, settings) {
+  var brand = settings.brandName || 'Cyno Pharma';
+  return [
+    '<div style="font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#0f172a;max-width:520px">',
+    '<div style="background:#2563eb;color:#fff;padding:22px 24px;border-radius:12px 12px 0 0">',
+    '<div style="font-size:20px;font-weight:700">Gift confirmed ✓</div>',
+    '<div style="opacity:.85;font-size:13px;margin-top:4px">' + escapeHtml(brand) + '</div>',
+    '</div>',
+    '<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:24px">',
+    '<p>Hi ' + escapeHtml(data.name || 'Doctor') + ',</p>',
+    '<p>Thanks for taking our quiz! Here\'s what you won:</p>',
+    '<table cellpadding="8" style="border-collapse:collapse;background:#f8fafc;border-radius:10px;width:100%;margin:16px 0">',
+    row('🎁 Gift', data.gift || '—'),
+    row('#️⃣ Reference', ref),
+    '</table>',
+    '<p style="color:#64748b;font-size:13px">Our team will reach out on WhatsApp or email shortly to arrange delivery.</p>',
+    '<p style="margin-bottom:0">— ' + escapeHtml(brand) + '</p>',
+    '</div></div>',
+  ].join('');
+}
+
 /**
  * Hands the booking to Pabbly Connect, which forwards it to Pabbly
  * Chatflow to actually send the WhatsApp template. Keeping the webhook
@@ -629,7 +895,7 @@ function readAvailability() {
         endMin: timeToMinutes(r[2]),
         gapMinutes: Number(r[3]) || 0,
         active: !/^(no|false|0|off)$/i.test(String(r[4] || 'yes').trim()),
-        capacity: parseCapacity(r[5]),
+        capacity: parseNullableInt(r[5]),
       };
     })
     .filter(function (r) {
@@ -638,16 +904,24 @@ function readAvailability() {
 }
 
 /**
- * Blank means "inherit Settings ▸ defaultCapacity" (null, resolved later in
- * slotTimesFor); an explicit 0 blocks that row's slots outright without
- * having to flip `active` to no. Negative or unparsable values fall back to
- * blank rather than silently opening a slot to unlimited bookings.
+ * Blank means "unset" (null) — for Availability that's "inherit Settings ▸
+ * defaultCapacity" (resolved later in slotTimesFor); for Gifts it's
+ * "unlimited stock". An explicit 0 blocks the row outright (no slots / out
+ * of stock) without having to flip `active` to no. Negative or unparsable
+ * values fall back to blank rather than silently opening things up to an
+ * unlimited count.
  */
-function parseCapacity(value) {
+function parseNullableInt(value) {
   var text = String(value == null ? '' : value).trim();
   if (text === '') return null;
   var n = Math.floor(Number(text));
   return isNaN(n) || n < 0 ? null : n;
+}
+
+/** Blank or non-positive means "no explicit weight" — defaults to an even 1. */
+function parseWeight(value) {
+  var n = Number(String(value == null ? '' : value).trim());
+  return isFinite(n) && n > 0 ? n : 1;
 }
 
 function readBlackouts() {
@@ -662,24 +936,34 @@ function readBlackouts() {
   return out;
 }
 
+// The four tiers a Gifts row may declare — see the PRIZE WHEEL note at the
+// top of this file for what each one means and who can win it.
+var GIFT_TIERS = ['superpremium', 'premium', 'standard', 'consolation'];
+
 /**
  * Prize wheel catalog: columns are tier | id | title | short | desc |
- * emoji | active. `tier` must be exactly "premium" or "standard" — any
+ * emoji | active | stock | weight. `tier` must be one of GIFT_TIERS — any
  * other value (blank, a typo, a note row) is silently skipped rather than
  * crashing the whole wheel over one bad row. Row order is preserved, so
  * dragging rows in the sheet reorders the wheel too.
+ *
+ * A row with stock exactly 0 is dropped just like an inactive one — see
+ * claimGift() for where stock actually gets decremented.
  */
 function readGifts() {
   var sheet = tab(TAB.gifts);
-  var out = { premium: [], standard: [] };
+  var out = { superpremium: [], premium: [], standard: [], consolation: [] };
   if (!sheet || sheet.getLastRow() < 2) return out;
 
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getDisplayValues().forEach(function (r, i) {
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getDisplayValues().forEach(function (r, i) {
     var tier = String(r[0] || '').trim().toLowerCase();
-    if (tier !== 'premium' && tier !== 'standard') return;
+    if (GIFT_TIERS.indexOf(tier) === -1) return;
 
     var active = !/^(no|false|0|off)$/i.test(String(r[6] || 'yes').trim());
     if (!active) return;
+
+    var stock = parseNullableInt(r[7]);
+    if (stock !== null && stock <= 0) return;
 
     var title = String(r[2] || '').trim();
     if (!title) return;
@@ -692,10 +976,13 @@ function readGifts() {
 
     out[tier].push({
       id: id,
+      tier: tier,
       title: title,
       short: String(r[3] || '').trim() || title,
       desc: String(r[4] || '').trim(),
       emoji: String(r[5] || '').trim() || '🎁',
+      stock: stock, // null = unlimited
+      weight: parseWeight(r[8]),
     });
   });
 
@@ -869,7 +1156,12 @@ function setupSheets() {
   seed(ss, TAB.bookings, BOOKING_HEADERS, []);
   forceTextColumns(ss.getSheetByName(TAB.bookings));
 
-  seed(ss, TAB.gifts, ['tier', 'id', 'title', 'short', 'desc', 'emoji', 'active'], starterGifts());
+  seed(ss, TAB.gifts, ['tier', 'id', 'title', 'short', 'desc', 'emoji', 'active', 'stock', 'weight'], starterGifts());
+  // Same reasoning as Availability's `capacity` above — lets a sheet
+  // deployed before stock/weight existed pick them up without a manual
+  // header edit. New cells read as blank, i.e. unlimited stock / weight 1,
+  // exactly like today's behaviour.
+  ensureColumns(ss.getSheetByName(TAB.gifts), ['stock', 'weight']);
 
   SpreadsheetApp.getActiveSpreadsheet().toast('Tabs ready. Fill in Settings ▸ notifyEmail and pabblyWebhook.');
 }
@@ -912,19 +1204,30 @@ function block(day, hour) {
  * load.
  */
 function starterGifts() {
+  // Last two columns are stock (blank = unlimited) and weight (blank = 1,
+  // i.e. even odds against every other row in the same tier).
   return [
-    ['premium', 'smart-watch', 'Smart Fitness Watch', 'Smart Watch', 'Health-tracking smartwatch with heart-rate & SpO₂.', '⌚', 'yes'],
-    ['premium', 'stethoscope', 'Premium Cardiology Stethoscope', 'Stethoscope', 'Professional dual-head cardiology stethoscope.', '🩺', 'yes'],
-    ['premium', 'bp-monitor', 'Digital BP Monitor', 'BP Monitor', 'Clinic-grade automatic blood pressure monitor.', '💗', 'yes'],
-    ['premium', 'amazon-2000', '₹2,000 Amazon Gift Card', '₹2000 Card', 'Shop anything you like on Amazon.', '🎁', 'yes'],
-    ['premium', 'leather-bag', 'Executive Leather Bag', 'Leather Bag', 'Premium doctor\'s leather laptop bag.', '💼', 'yes'],
-    ['premium', 'pulse-oximeter', 'Fingertip Pulse Oximeter', 'Oximeter', 'Accurate SpO₂ and pulse-rate monitor for your clinic.', '🫁', 'yes'],
-    ['standard', 'premium-pen', 'Premium Doctor\'s Pen Set', 'Pen Set', 'Elegant metal pen set, engraved.', '🖊️', 'yes'],
-    ['standard', 'coffee-voucher', 'Coffee Voucher', 'Coffee ₹200', '₹200 voucher for your favourite café.', '☕', 'yes'],
-    ['standard', 'medical-journal', 'Digital Journal Access', 'Journal 3M', '3-month premium clinical journal subscription.', '📚', 'yes'],
-    ['standard', 'amazon-500', '₹500 Amazon Gift Card', '₹500 Card', '₹500 shopping voucher.', '🎁', 'yes'],
-    ['standard', 'desk-organiser', 'Desk Organiser Set', 'Desk Set', 'Compact organiser with notepad for your desk.', '🗂️', 'yes'],
-    ['standard', 'cyno-kit', 'Cyno Care Kit', 'Care Kit', 'Branded mug, notebook and lapel pin.', '🧰', 'yes'],
+    // Rare jackpot tier — low weight (0.2, vs. 1 for a regular premium row)
+    // and a small stock (2) so these two units run out and the tab needs
+    // restocking on purpose, not by accident.
+    ['superpremium', 'flagship-phone', 'Flagship Smartphone', 'Smartphone', 'Latest flagship smartphone — our top prize.', '📱', 'yes', 2, 0.2],
+    ['superpremium', 'gold-voucher', '₹10,000 Gold Voucher', '₹10,000 Gold', 'Redeemable gold voucher — our rarest reward.', '🏆', 'yes', 2, 0.2],
+    ['premium', 'smart-watch', 'Smart Fitness Watch', 'Smart Watch', 'Health-tracking smartwatch with heart-rate & SpO₂.', '⌚', 'yes', '', 1],
+    ['premium', 'stethoscope', 'Premium Cardiology Stethoscope', 'Stethoscope', 'Professional dual-head cardiology stethoscope.', '🩺', 'yes', '', 1],
+    ['premium', 'bp-monitor', 'Digital BP Monitor', 'BP Monitor', 'Clinic-grade automatic blood pressure monitor.', '💗', 'yes', '', 1],
+    ['premium', 'amazon-2000', '₹2,000 Amazon Gift Card', '₹2000 Card', 'Shop anything you like on Amazon.', '🎁', 'yes', '', 1],
+    ['premium', 'leather-bag', 'Executive Leather Bag', 'Leather Bag', 'Premium doctor\'s leather laptop bag.', '💼', 'yes', '', 1],
+    ['premium', 'pulse-oximeter', 'Fingertip Pulse Oximeter', 'Oximeter', 'Accurate SpO₂ and pulse-rate monitor for your clinic.', '🫁', 'yes', '', 1],
+    ['standard', 'premium-pen', 'Premium Doctor\'s Pen Set', 'Pen Set', 'Elegant metal pen set, engraved.', '🖊️', 'yes', '', 1],
+    ['standard', 'coffee-voucher', 'Coffee Voucher', 'Coffee ₹200', '₹200 voucher for your favourite café.', '☕', 'yes', '', 1],
+    ['standard', 'medical-journal', 'Digital Journal Access', 'Journal 3M', '3-month premium clinical journal subscription.', '📚', 'yes', '', 1],
+    ['standard', 'amazon-500', '₹500 Amazon Gift Card', '₹500 Card', '₹500 shopping voucher.', '🎁', 'yes', '', 1],
+    ['standard', 'desk-organiser', 'Desk Organiser Set', 'Desk Set', 'Compact organiser with notepad for your desk.', '🗂️', 'yes', '', 1],
+    ['standard', 'cyno-kit', 'Cyno Care Kit', 'Care Kit', 'Branded mug, notebook and lapel pin.', '🧰', 'yes', '', 1],
+    // Consolation outcome, mixed into the standard pool. Weight 2 (vs. 1 for
+    // a regular standard row) means it comes up about twice as often as any
+    // single real gift — tune this to whatever "no-win" rate you want.
+    ['consolation', 'better-luck', 'Better Luck Next Time', 'Try Again', 'No physical prize this time — thanks for playing!', '🍀', 'yes', '', 2],
   ];
 }
 

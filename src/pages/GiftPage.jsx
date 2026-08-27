@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
+import { claimGift } from '../utils/booking.js'
 
 export default function GiftPage() {
   const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts } = useFlow()
@@ -28,16 +29,28 @@ export default function GiftPage() {
   function onResult(won) {
     setGift(won)
     setSpinning(false)
+    // Fire-and-forget: the win already happened on screen, this just spends
+    // the unit in the sheet so a limited gift can't be handed out twice.
+    claimGift(won.id)
   }
 
-  const nextStep = hasClinic ? STEPS.SCHEDULE : STEPS.THANKYOU
+  // Clinic owners go pick a meeting slot; everyone else still needs to leave
+  // contact details somewhere before Thank You, since a doctor with no
+  // clinic never otherwise types a phone number or email into this app.
+  const nextStep = hasClinic ? STEPS.SCHEDULE : STEPS.CONTACT
+  const isSuper = gift?.tier === 'superpremium'
+  const isConsolation = gift?.tier === 'consolation'
 
   return (
     <div className="card card--center spin-card">
       <div style={{ textAlign: 'center' }}>
         <h2 className="card__title">Spin &amp; Win 🎡</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>
-          {gift
+          {isSuper
+            ? 'Jackpot! You landed our rarest prize! 🌟'
+            : isConsolation
+            ? 'Thanks for spinning — better luck next time!'
+            : gift
             ? 'Here’s what the wheel picked for you!'
             : 'Spin the wheel to find out which reward is yours.'}
         </p>
@@ -60,7 +73,11 @@ export default function GiftPage() {
         {gift ? (
           <motion.div
             key="result"
-            className="spin-result"
+            className={
+              isSuper ? 'spin-result spin-result--super'
+                : isConsolation ? 'spin-result spin-result--consolation'
+                : 'spin-result'
+            }
             initial={{ opacity: 0, y: 14, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10 }}
@@ -68,7 +85,9 @@ export default function GiftPage() {
           >
             <span className="spin-result__emoji">{gift.emoji}</span>
             <div className="spin-result__text">
-              <span className="spin-result__label">You won</span>
+              <span className="spin-result__label">
+                {isSuper ? 'Jackpot' : isConsolation ? 'This time' : 'You won'}
+              </span>
               <span className="spin-result__title">{gift.title}</span>
               <span className="spin-result__desc">{gift.desc}</span>
             </div>

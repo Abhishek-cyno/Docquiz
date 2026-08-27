@@ -52,7 +52,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="landing">
+    <div className="landing"> 
       <section className="landing-hero">
         <GradientOrbs />
 

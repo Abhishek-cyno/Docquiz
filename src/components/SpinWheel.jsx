@@ -21,17 +21,29 @@ const R = 96
 const TURNS = 6 // full revolutions before settling
 const SPIN_SECONDS = 5
 
-// Brand blues and golds, each pairing a fill with a label colour that stays
-// readable on it. Five entries, not an even number, on purpose: the wheel
-// alternates premium and standard prizes, so an even-length palette would tint
-// one tier consistently and quietly give the game away.
+// premium and standard slices share this palette (brand blues plus one teal
+// for variety) — only superpremium/consolation get a dedicated look below.
 const SEGMENT_COLORS = [
   { bg: '#2563eb', fg: '#ffffff' },
-  { bg: '#fbbf24', fg: '#1e293b' },
+  { bg: '#14b8a6', fg: '#022c22' },
   { bg: '#1d4ed8', fg: '#ffffff' },
   { bg: '#93c5fd', fg: '#1e293b' },
   { bg: '#3b82f6', fg: '#ffffff' },
 ]
+
+// The two special tiers (see the PRIZE WHEEL note in
+// google-apps-script-booking.gs) get a look of their own instead of cycling
+// through SEGMENT_COLORS, so a doctor can tell at a glance which slices are
+// the jackpot and which one is "no real prize" — same idea as a Wheel of
+// Fortune board making its Bankrupt wedge visually distinct.
+const SUPER_COLOR = { bg: 'url(#wheelSuperGradient)', fg: '#4a2400', glow: true }
+const CONSOLATION_COLOR = { bg: '#64748b', fg: '#ffffff' }
+
+function colorForItem(item, i) {
+  if (item.tier === 'superpremium') return SUPER_COLOR
+  if (item.tier === 'consolation') return CONSOLATION_COLOR
+  return SEGMENT_COLORS[i % SEGMENT_COLORS.length]
+}
 
 // Wedge for slice `i`, measured clockwise from 12 o'clock.
 function segmentPath(i, total) {
@@ -101,13 +113,25 @@ export default function SpinWheel({ items, winnable, onResult, spinning, disable
           onAnimationComplete={settle}
           aria-hidden
         >
+          <defs>
+            <linearGradient id="wheelSuperGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff6d8" />
+              <stop offset="45%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+          </defs>
           <circle cx={C} cy={C} r={R + 3} fill="#ffffff" />
           {items.map((item, i) => {
-            const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length]
+            const color = colorForItem(item, i)
             const mid = i * step + step / 2
             return (
-              <g key={item.id}>
-                <path d={segmentPath(i, total)} fill={color.bg} stroke="#ffffff" strokeWidth="1.2" />
+              <g key={item.id} className={color.glow ? 'wheel__slice--super' : undefined}>
+                <path
+                  d={segmentPath(i, total)}
+                  fill={color.bg}
+                  stroke={color.glow ? '#f5c451' : '#ffffff'}
+                  strokeWidth={color.glow ? 2 : 1.2}
+                />
                 {/* Rotate the slice centre onto the +x axis so the label can
                     simply run outward along it. Slices past the 6 o'clock
                     mark would then come out upside down, so those get a
