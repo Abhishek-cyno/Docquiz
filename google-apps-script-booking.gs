@@ -1203,7 +1203,7 @@ function block(day, hour) {
  * remove, rename or reorder rows here; the app re-reads this tab on every
  * load.
  */
-function starterGifts() {
+function legacyStarterGifts() {
   // Last two columns are stock (blank = unlimited) and weight (blank = 1,
   // i.e. even odds against every other row in the same tier).
   return [
@@ -1229,6 +1229,40 @@ function starterGifts() {
     // single real gift — tune this to whatever "no-win" rate you want.
     ['consolation', 'better-luck', 'Better Luck Next Time', 'Try Again', 'No physical prize this time — thanks for playing!', '🍀', 'yes', '', 2],
   ];
+}
+
+/** Current prize catalog. Stock is decremented by claimGift() as prizes are won. */
+function starterGifts() {
+  return [
+    ['superpremium', 'branded-speaker', 'Branded Speaker', 'Speaker', 'A premium branded speaker.', '🔊', 'yes', 4, 1],
+    ['premium', 'call-bell-lamp-stand', 'Call Bell with Lamp and Stand', 'Bell & Lamp', 'Call bell with lamp and stand.', '🔔', 'yes', 1, 1],
+    ['premium', 'aesthetic-table-lamp', 'Aesthetic Table Lamp', 'Table Lamp', 'A stylish aesthetic table lamp.', '💡', 'yes', 2, 1],
+    ['premium', 'car-air-purifier', 'Car Air Purifier', 'Air Purifier', 'A compact air purifier for the car.', '🚗', 'yes', 1, 1],
+    ['premium', 'premium-mug-combo', 'Premium Mug Combo', 'Mug Combo', 'A premium branded mug combo.', '☕', 'yes', 2, 1],
+    ['standard', 'amazon-voucher-100', 'Amazon Voucher (Rs. 100)', 'Amazon Rs. 100', 'An Amazon voucher worth Rs. 100.', '🎁', 'yes', 2, 1],
+    // Blank stock means unlimited, so this is always available.
+    ['consolation', 'better-luck-next-time', 'Better Luck Next Time', 'Try Again', 'No physical prize this time — thanks for playing!', '🍀', 'yes', '', 2],
+  ];
+}
+
+/**
+ * One-time catalog migration for an existing Gifts tab. This replaces only
+ * gift rows; bookings and all other tabs are left unchanged. Run it from the
+ * Apps Script editor after deploying this version.
+ */
+function replaceGiftsWithCurrentCatalog() {
+  setupSheets();
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB.gifts);
+  var headers = ['tier', 'id', 'title', 'short', 'desc', 'emoji', 'active', 'stock', 'weight'];
+  var rows = starterGifts();
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (sheet.getMaxRows() > 1) sheet.getRange(2, 1, sheet.getMaxRows() - 1, headers.length).clearContent();
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+  try { CacheService.getScriptCache().remove(GIFTS_CACHE_KEY); } catch (cacheErr) {}
+  SpreadsheetApp.getActiveSpreadsheet().toast('Gifts catalog replaced with the current inventory.');
 }
 
 /** Creates a tab with headers if missing; never touches existing data. */

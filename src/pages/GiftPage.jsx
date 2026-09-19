@@ -5,8 +5,9 @@ import SpinWheel from '../components/SpinWheel.jsx'
 import { claimGift } from '../utils/booking.js'
 
 export default function GiftPage() {
-  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts } = useFlow()
+  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts } = useFlow()
   const [spinning, setSpinning] = useState(false)
+  const [claimError, setClaimError] = useState('')
 
   if (score === 0) {
     return (
@@ -26,12 +27,24 @@ export default function GiftPage() {
     )
   }
 
-  function onResult(won) {
-    setGift(won)
+  async function onResult(won) {
+    // The Sheet is the source of truth. Do not announce a win until its
+    // locked claim endpoint has reserved stock for this exact prize.
+    const claim = await claimGift(won.id)
     setSpinning(false)
-    // Fire-and-forget: the win already happened on screen, this just spends
-    // the unit in the sheet so a limited gift can't be handed out twice.
-    claimGift(won.id)
+    if (claim.ok) {
+      setGift(won)
+      return
+    }
+
+    // Another spin may have claimed the final unit while this wheel was
+    // animating. Refresh so exhausted rows disappear before the retry.
+    await reloadGifts()
+    setClaimError(
+      claim.reason === 'outofstock'
+        ? 'That gift was just claimed by someone else. The wheel has been refreshed — please spin again.'
+        : 'We could not reserve that gift. Please check your connection and spin again.'
+    )
   }
 
   // Clinic owners go pick a meeting slot; everyone else still needs to leave
@@ -65,9 +78,11 @@ export default function GiftPage() {
         spinning={spinning}
         disabled={!!gift}
         result={gift}
-        onSpinStart={() => setSpinning(true)}
+        onSpinStart={() => { setClaimError(''); setSpinning(true) }}
         onResult={onResult}
       />
+
+      {claimError && <p className="form__error" role="alert">{claimError}</p>}
 
       <AnimatePresence mode="wait">
         {gift ? (

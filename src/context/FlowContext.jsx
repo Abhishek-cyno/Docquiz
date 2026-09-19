@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { pickRandom } from '../utils/shuffle.js'
 import { fetchAppData } from '../utils/fetchAppData.js'
 import { fetchGifts } from '../utils/fetchGifts.js'
@@ -49,6 +49,12 @@ export function FlowProvider({ children }) {
   // google-apps-script-booking.gs.
   const [gifts, setGifts] = useState({ premium: [], standard: [], superpremium: [], consolation: [] })
   const [contentLoading, setContentLoading] = useState(true)
+
+  const reloadGifts = useCallback(async () => {
+    const giftData = await fetchGifts()
+    setGifts(giftData)
+    return giftData
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -125,7 +131,7 @@ export function FlowProvider({ children }) {
     answers, recordAnswer,
     score,
     gift, setGift,
-    hasClinic, giftWheel, winnableGifts,
+    hasClinic, giftWheel, winnableGifts, reloadGifts,
     meeting, setMeeting,
     reset,
   }
