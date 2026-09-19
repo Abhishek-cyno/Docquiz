@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import { fetchSlots, bookSlot } from '../utils/booking.js'
 import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
@@ -24,7 +23,7 @@ export default function SchedulePage() {
 
   const [name, setName] = useState(doctor.name || '')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(doctor.mobile || '')
 
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
@@ -217,21 +216,15 @@ export default function SchedulePage() {
                 </button>
               ))}
             </div>
+            <p className="slot-selection" aria-live="polite">
+              {selectedTime
+                ? `Selected appointment: ${activeDay?.label} at ${activeDay?.slots.find((s) => s.time === selectedTime)?.label}`
+                : 'Choose a time above to continue.'}
+            </p>
           </div>
 
           <div className="slot-details">
             <div className="slot-details__label">Your details</div>
-
-            <motion.div
-              className="slot-summary"
-              initial={false}
-              animate={{ opacity: selectedTime ? 1 : 0.55 }}
-            >
-              <span className="ico">🗓️</span>
-              {selectedTime
-                ? `${activeDay?.label} at ${activeDay?.slots.find((s) => s.time === selectedTime)?.label}`
-                : 'Pick a slot to continue'}
-            </motion.div>
 
             <label className="field">
               <span className="field__label">Full Name</span>

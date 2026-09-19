@@ -7,6 +7,7 @@ export default function QuizPage() {
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState(null)
   const [locked, setLocked] = useState(false)
+  const [correctCount, setCorrectCount] = useState(0)
 
   const current = questions[index]
   if (!current) return null
@@ -18,6 +19,7 @@ export default function QuizPage() {
     if (locked) return
     setSelected(optionIndex)
     setLocked(true)
+    if (optionIndex === current.answer) setCorrectCount((count) => count + 1)
     recordAnswer({
       questionId: current.id,
       question: current.q,
@@ -32,7 +34,9 @@ export default function QuizPage() {
       setSelected(null)
       setLocked(false)
     } else {
-      setStep(STEPS.COMPLETE)
+      // A score of zero goes straight to GiftPage's existing Try Again
+      // state instead of showing the Quiz Completed screen first.
+      setStep(correctCount === 0 ? STEPS.GIFT : STEPS.COMPLETE)
     }
   }
 

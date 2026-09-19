@@ -30,7 +30,7 @@ export default function QuizIntroPage() {
       <h2 className="card__title">Ready for a quick quiz?</h2>
       <p className="card__sub">
         {doctor.name ? `${doctor.name}, ` : ''}you'll be asked {CONFIG.questionsPerQuiz} questions
-        matched to your {doctor.specialty || 'specialty'}.
+        matched to your {doctor.category || 'category'}.
       </p>
 
       <ul className="intro__list">

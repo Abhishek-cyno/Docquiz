@@ -45,6 +45,26 @@ function colorForItem(item, i) {
   return SEGMENT_COLORS[i % SEGMENT_COLORS.length]
 }
 
+// Wheel labels have very little radial room. Split names into at most three
+// compact lines so long prize names remain inside their own slice.
+function labelLines(label, maxChars = 12) {
+  const words = String(label || '').split(/\s+/).filter(Boolean)
+  const lines = []
+
+  words.forEach((word) => {
+    const current = lines[lines.length - 1]
+    if (current && `${current} ${word}`.length <= maxChars) {
+      lines[lines.length - 1] = `${current} ${word}`
+    } else if (lines.length < 3) {
+      lines.push(word)
+    } else {
+      lines[2] = `${lines[2]} ${word}`
+    }
+  })
+
+  return lines.length ? lines : ['Prize']
+}
+
 // Wedge for slice `i`, measured clockwise from 12 o'clock.
 function segmentPath(i, total) {
   const step = 360 / total
@@ -124,6 +144,8 @@ export default function SpinWheel({ items, winnable, onResult, spinning, disable
           {items.map((item, i) => {
             const color = colorForItem(item, i)
             const mid = i * step + step / 2
+            const lines = labelLines(item.short || item.title)
+            const labelX = mid > 180 ? C - 71 : C + 71
             return (
               <g key={item.id} className={color.glow ? 'wheel__slice--super' : undefined}>
                 <path
@@ -143,15 +165,18 @@ export default function SpinWheel({ items, winnable, onResult, spinning, disable
                         keeps both clear of the hub on the smallest wheels. */}
                     <text
                       className="wheel__label"
-                      x={mid > 180 ? C - 71 : C + 71}
-                      y={C}
+                      x={labelX}
+                      y={C - ((lines.length - 1) * 3.4)}
                       fill={color.fg}
-                      fontSize="7.4"
+                      fontSize="6.6"
                       fontWeight="700"
                       textAnchor={mid > 180 ? 'start' : 'end'}
-                      dominantBaseline="middle"
                     >
-                      {item.short || item.title}
+                      {lines.map((line, lineIndex) => (
+                        <tspan key={lineIndex} x={labelX} dy={lineIndex === 0 ? 0 : 7}>
+                          {line}
+                        </tspan>
+                      ))}
                     </text>
                     <text
                       x={mid > 180 ? C - 83 : C + 83}

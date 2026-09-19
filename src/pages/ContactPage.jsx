@@ -16,7 +16,7 @@ export default function ContactPage() {
 
   const [name, setName] = useState(doctor.name || '')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(doctor.mobile || '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 

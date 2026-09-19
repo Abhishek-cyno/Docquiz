@@ -80,9 +80,9 @@ export default function LandingPage() {
           </RevealItem>
 
           <RevealItem as="p" className="landing-hero__lede">
-            Answer 3 quick questions based on your specialty{' '}
+            Please answer three short questions related to your specialty{' '}
             <br />
-            then spin the wheel to win a reward. It takes less than a minute.
+            then spin the wheel to claim your reward. It will take less than a minute.
           </RevealItem>
 
           <RevealItem className="landing-hero__perks">

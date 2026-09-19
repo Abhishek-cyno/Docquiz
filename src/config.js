@@ -5,7 +5,7 @@
 
 export const CONFIG = {
   // Brand
-  brandName: 'Cyno Pharma',
+  brandName: 'Eqova Medicare',
   tagline: 'Connecting Care with Knowledge',
 
   // Number of questions each doctor gets (randomly picked from the set)

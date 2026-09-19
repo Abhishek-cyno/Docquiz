@@ -10,7 +10,7 @@ const EMPTY_MEETING = {
   date: '', time: '', dateLabel: '', timeLabel: '', ref: '', email: '', phone: '',
 }
 
-const EMPTY_DOCTOR = { name: '', specialty: '', category: '', hasClinic: '' }
+const EMPTY_DOCTOR = { name: '', mobile: '', specialty: '', category: '', hasClinic: '' }
 
 export const STEPS = {
   LANDING: 'landing',

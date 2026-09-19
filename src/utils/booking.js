@@ -35,6 +35,36 @@ export async function fetchSlots() {
 }
 
 /**
+ * Checks whether this mobile number already has a recorded prize win. The
+ * booking sheet is the shared source of truth, so this also catches people
+ * returning from a different device or browser.
+ */
+export async function checkGiftEligibility(phone) {
+  if (!CONFIG.bookingEndpoint) {
+    return { ok: false, reason: 'config', error: 'Prize validation is not configured.' }
+  }
+
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (digits.length < 10) {
+    return { ok: false, reason: 'invalid', error: 'Please enter a valid mobile number.' }
+  }
+
+  try {
+    const url = `${CONFIG.bookingEndpoint}?action=eligibility&phone=${encodeURIComponent(digits)}&_${Date.now()}`
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (e) {
+    console.warn('Could not validate gift eligibility', e)
+    return {
+      ok: false,
+      reason: 'network',
+      error: "We couldn't validate prize eligibility. Please check your connection and try again.",
+    }
+  }
+}
+
+/**
  * Spends one unit of a gift's stock the moment the wheel lands on it (see
  * GiftPage.jsx) — this is what lets a limited gift actually run out across
  * every doctor spinning, not just this one browser tab. Best-effort: a
@@ -42,14 +72,22 @@ export async function fetchSlots() {
  * doctor already saw land, it just means that one unit doesn't get debited
  * from the sheet.
  */
-export async function claimGift(giftId) {
+export async function claimGift(giftId, doctor) {
   if (!CONFIG.bookingEndpoint || !giftId) return { ok: false }
 
   try {
     const res = await fetch(CONFIG.bookingEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'claimGift', id: giftId }),
+      body: JSON.stringify({
+        action: 'claimGift',
+        id: giftId,
+        name: doctor?.name || '',
+        phone: doctor?.mobile || '',
+        specialty: doctor?.specialty || '',
+        category: doctor?.category || '',
+        clinic: doctor?.hasClinic || '',
+      }),
       redirect: 'follow',
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

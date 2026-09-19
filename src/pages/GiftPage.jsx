@@ -1,13 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
-import { claimGift } from '../utils/booking.js'
+import { checkGiftEligibility, claimGift } from '../utils/booking.js'
 
 export default function GiftPage() {
-  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts } = useFlow()
+  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts, doctor } = useFlow()
   const [spinning, setSpinning] = useState(false)
   const [claimError, setClaimError] = useState('')
+  const [eligibility, setEligibility] = useState({ status: 'checking', error: '' })
+  const [eligibilityRetry, setEligibilityRetry] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    checkGiftEligibility(doctor.mobile).then((result) => {
+      if (!active) return
+      if (result.ok) {
+        setEligibility({ status: result.eligible ? 'eligible' : 'already-won', error: '' })
+      } else {
+        setEligibility({ status: 'error', error: result.error || 'We could not validate prize eligibility.' })
+      }
+    })
+    return () => { active = false }
+  }, [doctor.mobile, eligibilityRetry])
 
   if (score === 0) {
     return (
@@ -27,10 +42,45 @@ export default function GiftPage() {
     )
   }
 
+  if (eligibility.status === 'checking') {
+    return (
+      <div className="card card--center center-narrow" style={{ textAlign: 'center' }}>
+        <h2 className="card__title">Checking prize eligibility…</h2>
+        <p className="card__sub" style={{ margin: '6px auto 0' }}>Please wait a moment.</p>
+      </div>
+    )
+  }
+
+  if (eligibility.status === 'already-won') {
+    return (
+      <div className="card card--center center-narrow" style={{ textAlign: 'center' }}>
+        <h2 className="card__title">You’ve already won a prize</h2>
+        <p className="card__sub" style={{ margin: '6px auto 0' }}>
+          It looks like you’ve already claimed a prize. You’re welcome to take the quiz again, but only one prize can be claimed per person.
+        </p>
+        <button className="btn btn--primary" style={{ marginTop: 22 }} onClick={() => setStep(STEPS.LANDING)}>
+          Back to Home
+        </button>
+      </div>
+    )
+  }
+
+  if (eligibility.status === 'error') {
+    return (
+      <div className="card card--center center-narrow" style={{ textAlign: 'center' }}>
+        <h2 className="card__title">Prize eligibility could not be checked</h2>
+        <p className="card__sub" style={{ margin: '6px auto 0' }}>{eligibility.error}</p>
+        <button className="btn btn--primary" style={{ marginTop: 22 }} onClick={() => { setEligibility({ status: 'checking', error: '' }); setEligibilityRetry((count) => count + 1) }}>
+          Try Again
+        </button>
+      </div>
+    )
+  }
+
   async function onResult(won) {
     // The Sheet is the source of truth. Do not announce a win until its
     // locked claim endpoint has reserved stock for this exact prize.
-    const claim = await claimGift(won.id)
+    const claim = await claimGift(won.id, doctor)
     setSpinning(false)
     if (claim.ok) {
       setGift(won)

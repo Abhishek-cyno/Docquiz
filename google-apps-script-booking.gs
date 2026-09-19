@@ -31,6 +31,8 @@
  *    and sensible starter rows, and asks for the permissions this script
  *    needs (Sheets, Calendar, Gmail, external requests). Approve them.
  * 6. Open the Settings tab and fill in `notifyEmail` and `pabblyWebhook`.
+ *    Set `startDate` (YYYY-MM-DD) to choose the first date appointments
+ *    can be booked; the seeded value is 2026-10-05.
  * 7. Deploy ▸ New deployment ▸ type "Web app".
  *      - Execute as: Me
  *      - Who has access: Anyone
@@ -139,6 +141,7 @@ var GIFTS_CACHE_TTL_SECONDS = 300;
  *
  * GET ?action=gifts  ->  the prize wheel catalog, split into premium/
  * standard tiers, read from the Gifts tab.
+ * GET ?action=eligibility&phone=... -> whether the mobile number may spin.
  */
 function doGet(e) {
   try {
@@ -146,11 +149,26 @@ function doGet(e) {
 
     if (action === 'slots') return slotsResponse();
     if (action === 'gifts') return giftsResponse();
+    if (action === 'eligibility') return eligibilityResponse(e.parameter.phone);
 
     return json({ ok: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
   }
+}
+
+/** A saved prize winner may answer again but cannot spin for another prize. */
+function eligibilityResponse(phone) {
+  var digits = digitsOnly(phone);
+  if (digits.length < 10) {
+    return json({ ok: false, reason: 'invalid', error: 'A valid mobile number is required.' });
+  }
+
+  var existing = findExistingBooking('', digits);
+  // A booking row only counts as a prize claim once it contains a gift. This
+  // leaves ordinary meetings or manually entered rows alone.
+  var alreadyWon = !!(existing && String(existing.gift || '').trim());
+  return json({ ok: true, eligible: !alreadyWon });
 }
 
 function slotsResponse() {
@@ -228,7 +246,10 @@ function doPost(e) {
     // time, whether or not the wheel handed them a different gift this
     // time round.
     var existing = findExistingBooking(data.email, data.phone);
-    if (existing) {
+    // A wheel claim creates a provisional row immediately, before this form
+    // collects email and a meeting time. Complete that same row here.
+    var provisional = existing && existing.status === 'prize-claimed' ? existing : null;
+    if (existing && !provisional) {
       lock.releaseLock();
       return json({
         ok: true,
@@ -253,6 +274,7 @@ function doPost(e) {
     }
 
     var ref = makeRef();
+    if (provisional) ref = provisional.ref;
     var eventId = '';
 
     // Calendar first so its id lands in the same row. If Calendar fails we
@@ -264,14 +286,23 @@ function doPost(e) {
       console.error('Calendar event failed for ' + ref + ': ' + calErr);
     }
 
-    bookingsSheet().appendRow([
+    var bookingRow = [
       new Date(), ref, slotKey, date, time, 'confirmed',
       data.name || '', data.email || '', data.phone || '',
       data.specialty || '', data.category || '',
       data.score, data.total, data.percent,
       data.gift || '', JSON.stringify(data.answers || []), eventId,
       data.clinic || '',
-    ]);
+    ];
+    if (provisional) {
+      // Keep the reference issued at the spin, so the claim and eventual
+      // booking remain one auditable record.
+      bookingRow[1] = provisional.ref;
+      bookingsSheet().getRange(provisional.row, 1, 1, bookingRow.length).setValues([bookingRow]);
+      ref = provisional.ref;
+    } else {
+      bookingsSheet().appendRow(bookingRow);
+    }
 
     // The slot is safely ours from here, so let go of the lock before the
     // slow stuff. Mail and webhooks take seconds; holding the lock through
@@ -321,12 +352,22 @@ function claimGift(data) {
   var lock = LockService.getScriptLock();
   var id = String(data.id || '').trim();
   if (!id) return json({ ok: false, error: 'Missing gift id.' });
+  if (digitsOnly(data.phone).length < 10) {
+    return json({ ok: false, reason: 'invalid', error: 'A valid mobile number is required.' });
+  }
 
   if (!lock.tryLock(30000)) {
     return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
   }
 
   try {
+    // This is the authoritative one-prize-per-mobile check. It runs under
+    // the same lock as stock changes, so two tabs cannot both claim.
+    var prior = findExistingBooking('', data.phone);
+    if (prior && String(prior.gift || '').trim()) {
+      return json({ ok: false, reason: 'alreadyclaimed', error: 'This mobile number has already claimed a prize.' });
+    }
+
     var sheet = tab(TAB.gifts);
     if (!sheet || sheet.getLastRow() < 2) return json({ ok: false, error: 'Gift not found.' });
 
@@ -340,13 +381,19 @@ function claimGift(data) {
       if (rowId !== id) continue;
 
       var stock = parseNullableInt(rows[i][7]);
-      if (stock === null) return json({ ok: true, remaining: null }); // unlimited — nothing to spend
+      if (stock !== null && stock <= 0) return json({ ok: false, reason: 'outofstock', error: 'That gift just ran out.' });
 
-      if (stock <= 0) return json({ ok: false, reason: 'outofstock', error: 'That gift just ran out.' });
-
-      sheet.getRange(i + 2, 8).setValue(stock - 1);
+      if (stock !== null) sheet.getRange(i + 2, 8).setValue(stock - 1);
+      // Save the mobile and prize at the moment the wheel lands. The later
+      // booking/contact form upgrades this row rather than creating another.
+      bookingsSheet().appendRow([
+        new Date(), makeRef(), '', '', '', 'prize-claimed',
+        data.name || '', '', data.phone || '',
+        data.specialty || '', data.category || '',
+        '', '', '', title, '[]', '', data.clinic || '',
+      ]);
       try { CacheService.getScriptCache().remove(GIFTS_CACHE_KEY); } catch (cacheErr) {}
-      return json({ ok: true, remaining: stock - 1 });
+      return json({ ok: true, remaining: stock === null ? null : stock - 1 });
     }
 
     return json({ ok: false, error: 'Gift not found.' });
@@ -396,7 +443,19 @@ function registerGift(data) {
   try {
     // Same replay guard as the 'book' action — see findExistingBooking().
     existing = findExistingBooking(data.email, data.phone);
-    if (!existing) {
+    if (existing && existing.status === 'prize-claimed') {
+      var claimedRow = [
+        new Date(), existing.ref, '', '', '', 'no-visit',
+        data.name || '', data.email || '', data.phone || '',
+        data.specialty || '', data.category || '',
+        data.score, data.total, data.percent,
+        data.gift || existing.gift || '', JSON.stringify(data.answers || []), '',
+        data.clinic || 'no',
+      ];
+      bookingsSheet().getRange(existing.row, 1, 1, claimedRow.length).setValues([claimedRow]);
+      ref = existing.ref;
+      existing = null;
+    } else if (!existing) {
       ref = makeRef();
       bookingsSheet().appendRow([
         new Date(), ref, '', '', '', 'no-visit',
@@ -440,8 +499,14 @@ function buildDays() {
   var minNoticeMs = (Number(settings.minNoticeHours) || 0) * 3600 * 1000;
   var earliest = Date.now() + minNoticeMs;
 
+  // `daysAhead` is counted from the configured start date when it is in the
+  // future, not from today. This lets the campaign open on a chosen date
+  // without needing to keep changing the app deployment.
+  var today = ymd(new Date());
+  var configuredStart = normaliseDate(settings.startDate);
+  var firstDate = configuredStart && configuredStart > today ? configuredStart : today;
   var days = [];
-  var cursor = new Date();
+  var cursor = slotStart(firstDate, '00:00');
 
   for (var i = 0; i < daysAhead; i++) {
     var date = ymd(cursor);
@@ -515,6 +580,8 @@ function slotTimesFor(date, rules, settings) {
 /** Guards doPost against slots the UI could never legitimately have shown. */
 function isRealSlot(date, time) {
   var settings = readSettings();
+  var configuredStart = normaliseDate(settings.startDate);
+  if (configuredStart && date < configuredStart) return false;
   if (readBlackouts()[date]) return false;
 
   var minNoticeMs = (Number(settings.minNoticeHours) || 0) * 3600 * 1000;
@@ -585,10 +652,12 @@ function findExistingBooking(email, phone) {
 
     if ((normEmail && rowEmail === normEmail) || (normPhone && rowPhone === normPhone)) {
       return {
+        row: i + 2,
         ref: r[COL.ref],
         date: String(r[COL.date] || ''),
         time: String(r[COL.time] || ''),
         gift: String(r[COL.gift] || ''),
+        status: status,
       };
     }
   }
@@ -1135,6 +1204,9 @@ function setupSheets() {
 
   seed(ss, TAB.settings, ['key', 'value'], [
     ['brandName', 'Cyno Pharma'],
+    // First bookable date. Change this value in Settings whenever the
+    // campaign schedule changes; no code or frontend deployment is needed.
+    ['startDate', '2026-10-05'],
     ['daysAhead', 14],
     ['gapMinutes', 60],        // spacing between slot start times
     ['meetingMinutes', 30],    // how long the meeting itself runs
@@ -1152,6 +1224,7 @@ function setupSheets() {
   // Same problem as Availability above, but Settings is key/value rows
   // rather than columns — add the row only if it's genuinely missing.
   ensureSettingRow(ss.getSheetByName(TAB.settings), 'defaultCapacity', 1);
+  ensureSettingRow(ss.getSheetByName(TAB.settings), 'startDate', '2026-10-05');
 
   seed(ss, TAB.bookings, BOOKING_HEADERS, []);
   forceTextColumns(ss.getSheetByName(TAB.bookings));

@@ -6,6 +6,7 @@ import doctorFormImg from '../assets/doctor-form.png'
 export default function RegisterPage() {
   const { setStep, doctor, setDoctor, specialties, categories, contentLoading } = useFlow()
   const [name, setName] = useState(doctor.name)
+  const [mobile, setMobile] = useState(doctor.mobile)
   const [specialty, setSpecialty] = useState(doctor.specialty)
   const [category, setCategory] = useState(doctor.category)
   const [hasClinic, setHasClinic] = useState(doctor.hasClinic)
@@ -20,11 +21,12 @@ export default function RegisterPage() {
   function onSubmit(e) {
     e.preventDefault()
     if (!name.trim()) return setError('Please enter your name.')
+    if (mobile.replace(/\D/g, '').length < 10) return setError('Please enter a valid mobile number.')
     if (!specialty) return setError('Please select your specialty.')
     if (!category) return setError('Please select your category.')
     if (!hasClinic) return setError('Please tell us whether you have your own clinic.')
     setError('')
-    setDoctor({ name: name.trim(), specialty, category, hasClinic })
+    setDoctor({ name: name.trim(), mobile: mobile.trim(), specialty, category, hasClinic })
     setStep(STEPS.QUIZINTRO)
   }
 
@@ -48,6 +50,19 @@ export default function RegisterPage() {
           </label>
 
           <label className="field">
+            <span className="field__label">Mobile Number</span>
+            <input
+              className="field__input"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder="+91 98765 43210"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+            />
+          </label>
+
+          <label className="field">
             <span className="field__label">Specialty</span>
             <select
               className="field__input"
@@ -64,7 +79,7 @@ export default function RegisterPage() {
 
           <label className="field">
             <span className="field__label">
-              Category <span className="field__hint">(auto-selected — change if needed)</span>
+              Quiz Category <span className="field__hint">(auto-selected — change if needed)</span>
             </span>
             <select
               className="field__input"
@@ -72,7 +87,7 @@ export default function RegisterPage() {
               onChange={(e) => setCategory(e.target.value)}
               disabled={!specialty || contentLoading}
             >
-              <option value="">Category will appear here…</option>
+              <option value="">Please select a quiz category…</option>
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}

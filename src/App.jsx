@@ -46,12 +46,7 @@ export default function App() {
       <header className="app__header">
         <div className="app__header-inner">
           <div className="brand">
-            <span className="brand__mark" aria-hidden>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </span>
-            <span className="brand__name">{CONFIG.brandName.split(' ')[0]}<span> {CONFIG.brandName.split(' ').slice(1).join(' ')}</span></span>
+            <img className="brand__logo" src="/images/eqova-logo.png" alt={CONFIG.brandName} />
           </div>
         </div>
       </header>
@@ -73,11 +68,15 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {!isLanding && (
-        <footer className="app__footer">
-          © {new Date().getFullYear()} {CONFIG.brandName}. For registered healthcare professionals.
-        </footer>
-      )}
+      <footer className="app__footer">
+          {/* <p className="app__footer-copy">
+            © {new Date().getFullYear()} {CONFIG.brandName}. For registered healthcare professionals.
+          </p> */}
+          <div className="powered-by">
+            <img className="powered-by__logo" src="/images/cyno-logo.png" alt="Cyno Pharma" />
+            <span className="powered-by__text">Powered by <strong>Cyno Pharma</strong></span>
+          </div>
+      </footer>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-# Cyno Pharma — Doctor Connect Quiz
+# Eqova Medicare Quiz
 
 A mobile-first React app for collecting doctor information via a QR-code funnel:
 

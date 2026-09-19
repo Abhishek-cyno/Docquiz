@@ -18,21 +18,21 @@ const STEPS = [
     tone: 'blue',
     step: '01',
     title: 'Tell us about you',
-    text: 'Your name and specialty — that is all we need to tailor the questions to your practice.',
+    text: 'Name and specialty, so the questions match your field.',
   },
   {
     Icon: EcgIcon,
     tone: 'teal',
     step: '02',
     title: 'Answer 3 questions',
-    text: 'Short, clinically relevant and written for your field. It takes less than a minute.',
+    text: 'Short, clinically relevant questions for busy doctors.',
   },
   {
     Icon: GiftIcon,
     tone: 'violet',
     step: '03',
     title: 'Spin & win your reward',
-    text: 'Spin the prize wheel and we will get your gift to you — clinic owners also book a visit.',
+    text: 'Spin the wheel and we will send your gift.',
   },
 ]
 

@@ -40,7 +40,7 @@ export default function CompletePage() {
           Quiz Completed!
         </motion.h2>
         <p className="card__sub">
-          Great job{doctor.name ? `, ${doctor.name}` : ''}! You've successfully completed the {doctor.specialty} quiz.
+          Great job{doctor.name ? `, ${doctor.name}` : ''}! You've successfully completed the {doctor.category} quiz.
         </p>
 
         <motion.div
