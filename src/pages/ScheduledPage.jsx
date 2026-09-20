@@ -61,7 +61,7 @@ export default function ScheduledPage() {
 
         <h2 className="card__title">Meeting Scheduled!</h2>
         <p className="card__sub">
-          Confirmation sent to <strong>{meeting.email}</strong> and on WhatsApp to <strong>{meeting.phone}</strong>.
+          Your booking is confirmed. Our representative will contact you on WhatsApp at <strong>{meeting.phone}</strong>.
         </p>
 
         <motion.div

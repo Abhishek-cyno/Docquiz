@@ -89,6 +89,14 @@
 var TZ = 'Asia/Kolkata';
 var TZ_OFFSET = '+05:30';
 
+// Temporary launch controls. Keep both false until the booking script is
+// owned by the correct shared Google account. Re-enable either feature later
+// by changing its value to true and deploying a new Web App version.
+// Bookings, slot reservations, Sheet records, and WhatsApp notifications are
+// intentionally unaffected.
+var SEND_BOOKING_EMAILS = false;
+var CREATE_CALENDAR_INVITES = false;
+
 var TAB = {
   availability: 'Availability',
   blackouts: 'Blackouts',
@@ -280,10 +288,12 @@ function doPost(e) {
     // Calendar first so its id lands in the same row. If Calendar fails we
     // still want the booking recorded — losing the slot reservation over a
     // calendar hiccup would be much worse than a missing invite.
-    try {
-      eventId = createCalendarEvent(data, date, time);
-    } catch (calErr) {
-      console.error('Calendar event failed for ' + ref + ': ' + calErr);
+    if (CREATE_CALENDAR_INVITES) {
+      try {
+        eventId = createCalendarEvent(data, date, time);
+      } catch (calErr) {
+        console.error('Calendar event failed for ' + ref + ': ' + calErr);
+      }
     }
 
     var bookingRow = [
@@ -315,8 +325,10 @@ function doPost(e) {
 
     var labels = { date: dateLabel(date), time: timeLabel(time) };
 
-    try { sendEmails(data, date, time, labels, ref); }
-    catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
+    if (SEND_BOOKING_EMAILS) {
+      try { sendEmails(data, date, time, labels, ref); }
+      catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
+    }
 
     try { notifyPabbly(data, date, time, labels, ref); }
     catch (waErr) { console.error('Pabbly webhook failed for ' + ref + ': ' + waErr); }
