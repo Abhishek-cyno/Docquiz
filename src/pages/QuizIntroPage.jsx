@@ -15,6 +15,7 @@ export default function QuizIntroPage() {
     buildQuiz(doctor.specialty)
     setStep(STEPS.QUIZ)
   }
+  
 
   return (
     <div className="card card--center center-narrow">
@@ -30,7 +31,7 @@ export default function QuizIntroPage() {
       <h2 className="card__title">Ready for a quick quiz?</h2>
       <p className="card__sub">
         {doctor.name ? `${doctor.name}, ` : ''}you'll be asked {CONFIG.questionsPerQuiz} questions
-        matched to your {doctor.category || 'category'}.
+        related to {doctor.category || 'category'}.
       </p>
 
       <ul className="intro__list">

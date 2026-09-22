@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import Float from '../components/motion/Float.jsx'
+import { capitalizeName } from '../utils/formatName.js'
+import { registerDoctor } from '../utils/booking.js'
 import doctorFormImg from '../assets/doctor-form.png'
 
 export default function RegisterPage() {
@@ -26,7 +28,14 @@ export default function RegisterPage() {
     if (!category) return setError('Please select your category.')
     if (!hasClinic) return setError('Please tell us whether you have your own clinic.')
     setError('')
-    setDoctor({ name: name.trim(), mobile: mobile.trim(), specialty, category, hasClinic })
+    const doctorDetails = { name: capitalizeName(name).trim(), mobile: mobile.trim(), specialty, category, hasClinic }
+    setDoctor(doctorDetails)
+    // Best-effort, not awaited: this is what puts the doctor's first row in
+    // the Sheet (see registerDoctor() in google-apps-script-booking.gs), but
+    // a slow or failed request shouldn't hold up starting the quiz — the
+    // gift/booking steps later fall back to creating that row themselves if
+    // this one never lands.
+    registerDoctor(doctorDetails)
     setStep(STEPS.QUIZINTRO)
   }
 
@@ -44,7 +53,8 @@ export default function RegisterPage() {
               type="text"
               placeholder="Dr. Shivangi Mittal"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(capitalizeName(e.target.value))}
+              autoCapitalize="words"
               autoFocus
             />
           </label>

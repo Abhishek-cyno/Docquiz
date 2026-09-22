@@ -36,7 +36,7 @@ const STEPS = [
   },
 ]
 
-export default function HowItWorks() {
+export default function HowItWorks({ onProceed }) {
   const reduced = useReducedMotion()
 
   const hover = {
@@ -71,6 +71,15 @@ export default function HowItWorks() {
           </RevealItem>
         ))}
       </RevealGroup>
+
+      {onProceed && (
+        <Reveal as="div" className="how__actions" delay={0.1}>
+          <button type="button" className="btn btn--primary btn--lg how__proceed" onClick={onProceed}>
+            Proceed
+            <span className="btn__arrow" aria-hidden="true">→</span>
+          </button>
+        </Reveal>
+      )}
     </section>
   )
 }

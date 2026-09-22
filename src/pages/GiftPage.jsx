@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
+import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import { checkGiftEligibility, claimGift } from '../utils/booking.js'
 
+/**
+ * Owns the eligibility check so the loading overlay can stay mounted across
+ * the checking -> result switch — that's what lets it finish at 100% and fade
+ * out, instead of vanishing the instant the screen underneath changes.
+ */
 export default function GiftPage() {
-  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts, doctor } = useFlow()
-  const [spinning, setSpinning] = useState(false)
-  const [claimError, setClaimError] = useState('')
+  const { score, doctor } = useFlow()
   const [eligibility, setEligibility] = useState({ status: 'checking', error: '' })
   const [eligibilityRetry, setEligibilityRetry] = useState(0)
 
@@ -15,7 +19,7 @@ export default function GiftPage() {
     let active = true
     checkGiftEligibility(doctor.mobile).then((result) => {
       if (!active) return
-      if (result.ok) {
+      if (result.ok) {        
         setEligibility({ status: result.eligible ? 'eligible' : 'already-won', error: '' })
       } else {
         setEligibility({ status: 'error', error: result.error || 'We could not validate prize eligibility.' })
@@ -23,6 +27,27 @@ export default function GiftPage() {
     })
     return () => { active = false }
   }, [doctor.mobile, eligibilityRetry])
+
+  // A score of 0 never reaches the wheel, so there is nothing to wait for.
+  const checking = score !== 0 && eligibility.status === 'checking'
+
+  function retry() {
+    setEligibility({ status: 'checking', error: '' })
+    setEligibilityRetry((count) => count + 1)
+  }
+
+  return (
+    <>
+      <LoadingOverlay show={checking} />
+      <GiftScreen eligibility={eligibility} onRetry={retry} />
+    </>
+  )
+}
+
+function GiftScreen({ eligibility, onRetry }) {
+  const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts, doctor } = useFlow()
+  const [spinning, setSpinning] = useState(false)
+  const [claimError, setClaimError] = useState('')
 
   if (score === 0) {
     return (
@@ -42,14 +67,8 @@ export default function GiftPage() {
     )
   }
 
-  if (eligibility.status === 'checking') {
-    return (
-      <div className="card card--center center-narrow" style={{ textAlign: 'center' }}>
-        <h2 className="card__title">Checking prize eligibility…</h2>
-        <p className="card__sub" style={{ margin: '6px auto 0' }}>Please wait a moment.</p>
-      </div>
-    )
-  }
+  // The loading overlay (see GiftPage) covers the screen while this runs.
+  if (eligibility.status === 'checking') return null
 
   if (eligibility.status === 'already-won') {
     return (
@@ -70,7 +89,7 @@ export default function GiftPage() {
       <div className="card card--center center-narrow" style={{ textAlign: 'center' }}>
         <h2 className="card__title">Prize eligibility could not be checked</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>{eligibility.error}</p>
-        <button className="btn btn--primary" style={{ marginTop: 22 }} onClick={() => { setEligibility({ status: 'checking', error: '' }); setEligibilityRetry((count) => count + 1) }}>
+        <button className="btn btn--primary" style={{ marginTop: 22 }} onClick={onRetry}>
           Try Again
         </button>
       </div>

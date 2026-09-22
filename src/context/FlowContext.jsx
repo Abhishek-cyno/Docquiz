@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { pickRandom } from '../utils/shuffle.js'
 import { fetchAppData } from '../utils/fetchAppData.js'
 import { fetchGifts } from '../utils/fetchGifts.js'
+import { capitalizeName } from '../utils/formatName.js'
 import { CONFIG } from '../config.js'
 
 const FlowContext = createContext(null)
@@ -27,7 +28,14 @@ export const STEPS = {
 
 export function FlowProvider({ children }) {
   const [step, setStep] = useState(STEPS.LANDING)
-  const [doctor, setDoctor] = useState(EMPTY_DOCTOR)
+  const [doctor, setDoctorRaw] = useState(EMPTY_DOCTOR)
+  // Single choke point for the doctor's name, so every screen that greets
+  // them (quiz intro, completion, thank-you, booking payloads) shows it
+  // capitalised without each one having to remember to.
+  const setDoctor = useCallback(
+    (next) => setDoctorRaw({ ...next, name: capitalizeName(next.name).trim() }),
+    []
+  )
   const [questions, setQuestions] = useState([])
   const [answers, setAnswers] = useState([]) // { questionId, chosen, correct }
   const [gift, setGift] = useState(null)
@@ -107,14 +115,20 @@ export function FlowProvider({ children }) {
     return mixed
   }, [gifts])
 
-  const winnableGifts = useMemo(
-    () => (hasClinic ? [...gifts.superpremium, ...gifts.premium] : [...gifts.standard, ...gifts.consolation]),
-    [gifts, hasClinic]
-  )
+  const winnableGifts = useMemo(() => {
+    const pool = hasClinic
+      ? [...gifts.superpremium, ...gifts.premium]
+      : [...gifts.standard, ...gifts.consolation]
+    // stock === 0 means out of stock. The gift still has a slice on
+    // giftWheel above (so the wheel doesn't visibly shrink), but it must
+    // never be the one the wheel actually lands on — see pickWinnerIndex in
+    // src/utils/wheel.js, which only ever picks among `winnableGifts`.
+    return pool.filter((g) => g.stock !== 0)
+  }, [gifts, hasClinic])
 
   function reset() {
     setStep(STEPS.LANDING)
-    setDoctor(EMPTY_DOCTOR)
+    setDoctorRaw(EMPTY_DOCTOR)
     setQuestions([])
     setAnswers([])
     setGift(null)

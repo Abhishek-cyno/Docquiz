@@ -271,8 +271,9 @@ button, input, select { font-family: inherit; }
 /* =========================================================
    Loading overlay
    ---------------------------------------------------------
-   Full-screen blurred backdrop with a single revolving ring
-   centered on screen — no card, no text.
+   Full-screen blurred backdrop with a circular progress ring
+   centered on screen: white disc, grey track, blue arc, and the
+   percentage in the middle.
    ========================================================= */
 .loading-overlay {
   position: fixed; inset: 0; z-index: 200;
@@ -281,6 +282,25 @@ button, input, select { font-family: inherit; }
   -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
 }
+
+.progress-ring {
+  position: relative;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 24px 60px -20px rgba(15, 23, 42, 0.45);
+}
+.progress-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.progress-ring circle { fill: none; }
+.progress-ring__track { stroke: var(--ink-200); }
+.progress-ring__arc { stroke: var(--brand-700); stroke-linecap: round; }
+.progress-ring__value {
+  position: relative;
+  font-size: 26px; font-weight: 800; line-height: 1;
+  color: var(--brand-600);
+  font-variant-numeric: tabular-nums;
+}
+.progress-ring__value small { margin-left: 3px; font-size: 0.72em; font-weight: 800; }
 
 /* =========================================================
    Landing hero — full screen
@@ -460,6 +480,8 @@ button, input, select { font-family: inherit; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
   gap: 22px; max-width: 1060px; margin: 0 auto;
 }
+.how__actions { display: flex; justify-content: center; margin-top: 44px; }
+.how__proceed { border-radius: 12px; min-width: 200px; justify-content: center; }
 .how__card {
   position: relative;
   background: #fff;

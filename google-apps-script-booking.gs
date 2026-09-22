@@ -82,6 +82,29 @@
  * IMPORTANT: after ANY edit to this file you must Deploy ▸ Manage
  * deployments ▸ edit ▸ Version: New version. Saving alone does not
  * update the live URL.
+ *
+ * SENDING AS A DIFFERENT ACCOUNT (e.g. rx@eqova.in) WITHOUT TOUCHING THE
+ * ORIGINAL ACCOUNT'S OWN GMAIL/CALENDAR SETTINGS: MailApp and
+ * CalendarApp.getDefaultCalendar() always act as whichever Google account
+ * created the specific Web App deployment being hit — not necessarily the
+ * account that owns this script file. So rather than reconfiguring the
+ * original account, have the new account create its own deployment of this
+ * same file:
+ *   1. From the original account, share the Google Sheet this script is
+ *      bound to with rx@eqova.in as Editor (Share ▸ add rx@eqova.in).
+ *   2. Sign in to Google as rx@eqova.in, open that Sheet, then
+ *      Extensions ▸ Apps Script — this opens the SAME script project
+ *      (Editor access to the Sheet includes its bound script).
+ *   3. Deploy ▸ Manage deployments ▸ New deployment ▸ type "Web app",
+ *      Execute as: Me, Who has access: Anyone. Approve the permissions
+ *      prompt (Sheets, Calendar, Gmail, external requests) as rx@eqova.in
+ *      when asked — this is what makes this new deployment's mail and
+ *      Calendar invites use rx@eqova.in, while the ORIGINAL deployment
+ *      (still owned by whoever's account it was) is untouched and can be
+ *      left running or turned off independently.
+ *   4. Copy the new deployment's Web app URL into src/config.js ->
+ *      bookingEndpoint. Both deployments read/write the same Sheet, so
+ *      there is exactly one Bookings/Gifts catalog either way.
  */
 
 // India has no DST, so a fixed offset is safe and sidesteps every
@@ -89,13 +112,19 @@
 var TZ = 'Asia/Kolkata';
 var TZ_OFFSET = '+05:30';
 
-// Temporary launch controls. Keep both false until the booking script is
-// owned by the correct shared Google account. Re-enable either feature later
-// by changing its value to true and deploying a new Web App version.
-// Bookings, slot reservations, Sheet records, and WhatsApp notifications are
-// intentionally unaffected.
-var SEND_BOOKING_EMAILS = false;
-var CREATE_CALENDAR_INVITES = false;
+// Booking confirmation emails and the Calendar invite. Both send/create as
+// whichever Google account holds the Web App DEPLOYMENT that's actually
+// live — not necessarily whoever owns this script file — since MailApp and
+// CalendarApp.getDefaultCalendar() always act as that deploying account,
+// with no from-address override. To make both go out as rx@eqova.in
+// without touching the personal account that owns this file, rx@eqova.in
+// creates its OWN deployment of this same script (see the SETUP note at
+// the top of this file for the exact steps: share the Sheet with
+// rx@eqova.in as Editor, have it open Extensions ▸ Apps Script, then
+// Deploy ▸ New deployment from there) rather than reusing the existing
+// deployment. Point src/config.js -> bookingEndpoint at that new URL.
+var SEND_BOOKING_EMAILS = true;
+var CREATE_CALENDAR_INVITES = true;
 
 var TAB = {
   availability: 'Availability',
@@ -214,6 +243,10 @@ function giftsResponse() {
  * POST { action:'registerGift', name, email, phone, ... } -> records a
  * doctor who won a gift but has no clinic for a rep to visit, so there's no
  * slot to book. See registerGift() below.
+ *
+ * POST { action:'registerDoctor', name, phone, specialty, category, clinic }
+ * -> saves the registration form the instant it's submitted, before the
+ * quiz even starts. See registerDoctor() below.
  */
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -224,6 +257,7 @@ function doPost(e) {
 
     if (action === 'claimGift') return claimGift(data);
     if (action === 'registerGift') return registerGift(data);
+    if (action === 'registerDoctor') return registerDoctor(data);
     if (action !== 'book') {
       return json({ ok: false, error: 'Unknown action: ' + action });
     }
@@ -254,9 +288,12 @@ function doPost(e) {
     // time, whether or not the wheel handed them a different gift this
     // time round.
     var existing = findExistingBooking(data.email, data.phone);
-    // A wheel claim creates a provisional row immediately, before this form
-    // collects email and a meeting time. Complete that same row here.
-    var provisional = existing && existing.status === 'prize-claimed' ? existing : null;
+    // Registration and a wheel claim both create a provisional row before
+    // this form collects email and a meeting time — complete that same row
+    // here rather than appending a second one.
+    var provisional = existing && (existing.status === 'registered' || existing.status === 'prize-claimed')
+      ? existing
+      : null;
     if (existing && !provisional) {
       lock.releaseLock();
       return json({
@@ -396,14 +433,22 @@ function claimGift(data) {
       if (stock !== null && stock <= 0) return json({ ok: false, reason: 'outofstock', error: 'That gift just ran out.' });
 
       if (stock !== null) sheet.getRange(i + 2, 8).setValue(stock - 1);
-      // Save the mobile and prize at the moment the wheel lands. The later
-      // booking/contact form upgrades this row rather than creating another.
-      bookingsSheet().appendRow([
-        new Date(), makeRef(), '', '', '', 'prize-claimed',
+      // Save the mobile and prize at the moment the wheel lands. registerDoctor()
+      // (see RegisterPage.jsx) already created this row at 'registered' status
+      // when the form was submitted, so upgrade that same row in place — the
+      // later booking/contact form then upgrades it again rather than any of
+      // these three steps ever creating a second row for the same phone.
+      var claimRow = [
+        new Date(), prior ? prior.ref : makeRef(), '', '', '', 'prize-claimed',
         data.name || '', '', data.phone || '',
         data.specialty || '', data.category || '',
         '', '', '', title, '[]', '', data.clinic || '',
-      ]);
+      ];
+      if (prior) {
+        bookingsSheet().getRange(prior.row, 1, 1, claimRow.length).setValues([claimRow]);
+      } else {
+        bookingsSheet().appendRow(claimRow);
+      }
       try { CacheService.getScriptCache().remove(GIFTS_CACHE_KEY); } catch (cacheErr) {}
       return json({ ok: true, remaining: stock === null ? null : stock - 1 });
     }
@@ -455,7 +500,7 @@ function registerGift(data) {
   try {
     // Same replay guard as the 'book' action — see findExistingBooking().
     existing = findExistingBooking(data.email, data.phone);
-    if (existing && existing.status === 'prize-claimed') {
+    if (existing && (existing.status === 'registered' || existing.status === 'prize-claimed')) {
       var claimedRow = [
         new Date(), existing.ref, '', '', '', 'no-visit',
         data.name || '', data.email || '', data.phone || '',
@@ -488,6 +533,60 @@ function registerGift(data) {
   catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
 
   return json({ ok: true, ref: ref });
+}
+
+/**
+ * Saves the registration form (name/phone/specialty/category/clinic) the
+ * instant it's submitted, before the quiz has even started — see
+ * RegisterPage.jsx. This is what puts the FIRST row in the Bookings sheet
+ * for a doctor; claimGift(), the 'book' action and registerGift() all find
+ * it afterwards by phone (see findExistingBooking()) and upgrade that same
+ * row in place, so one doctor's whole journey — register, spin, book/
+ * contact — stays a single row instead of piling up one per step.
+ *
+ * Status 'registered' marks a row that hasn't progressed past this step
+ * yet. If the doctor is already past it (a gift claimed, a slot booked, or
+ * a no-visit contact saved), this leaves that row untouched rather than
+ * stomping the progress a later step already recorded — e.g. going Back to
+ * registration and resubmitting shouldn't blank out a prize already won.
+ */
+function registerDoctor(data) {
+  if (!String(data.name || '').trim()) return json({ ok: false, reason: 'invalid', error: 'Name is required.' });
+  if (digitsOnly(data.phone).length < 10) {
+    return json({ ok: false, reason: 'invalid', error: 'A valid mobile number is required.' });
+  }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return json({ ok: false, reason: 'busy', error: 'Server busy, please try again.' });
+  }
+
+  try {
+    var existing = findExistingBooking('', data.phone);
+
+    if (existing && existing.status !== 'registered') {
+      return json({ ok: true, ref: existing.ref });
+    }
+
+    var ref = existing ? existing.ref : makeRef();
+    var row = [
+      new Date(), ref, '', '', '', 'registered',
+      data.name || '', '', data.phone || '',
+      data.specialty || '', data.category || '',
+      '', '', '', '', '[]', '',
+      data.clinic || '',
+    ];
+
+    if (existing) {
+      bookingsSheet().getRange(existing.row, 1, 1, row.length).setValues([row]);
+    } else {
+      bookingsSheet().appendRow(row);
+    }
+
+    return json({ ok: true, ref: ref });
+  } finally {
+    try { lock.releaseLock(); } catch (ignored) {}
+  }
 }
 
 // ============================================================
@@ -759,8 +858,9 @@ function sendEmails(data, date, time, labels, ref) {
   var settings = readSettings();
   var brand = settings.brandName || 'Cyno Pharma';
 
-  // MailApp sends as the Google account that owns this script, so the
-  // doctor sees your address in the From line — no SMTP, no third party.
+  // MailApp sends as whichever Google account this deployment runs under —
+  // see the note on SEND_BOOKING_EMAILS above for how that becomes
+  // rx@eqova.in without touching the personal account's own Gmail settings.
   MailApp.sendEmail({
     to: data.email,
     name: brand,
@@ -1028,8 +1128,11 @@ var GIFT_TIERS = ['superpremium', 'premium', 'standard', 'consolation'];
  * crashing the whole wheel over one bad row. Row order is preserved, so
  * dragging rows in the sheet reorders the wheel too.
  *
- * A row with stock exactly 0 is dropped just like an inactive one — see
- * claimGift() for where stock actually gets decremented.
+ * A row with stock exactly 0 stays on the wheel — it keeps its slice so the
+ * wheel doesn't visibly shrink — but the client excludes it from
+ * `winnableGifts` (see FlowContext.jsx) so it can never actually be landed
+ * on. An inactive row is still dropped outright here. See claimGift() for
+ * where stock actually gets decremented.
  */
 function readGifts() {
   var sheet = tab(TAB.gifts);
@@ -1044,7 +1147,6 @@ function readGifts() {
     if (!active) return;
 
     var stock = parseNullableInt(r[7]);
-    if (stock !== null && stock <= 0) return;
 
     var title = String(r[2] || '').trim();
     if (!title) return;

@@ -41,7 +41,9 @@ export default function App() {
 
   return (
     <div className="app">
-      <LoadingOverlay show={contentLoading} />
+      {/* Initial load only — the overlay covers the landing page while the sheet
+          content arrives, and never shows on the screens after it. */}
+      <LoadingOverlay show={contentLoading && isLanding} />
 
       <header className="app__header">
         <div className="app__header-inner">

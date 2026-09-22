@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import { registerGift } from '../utils/booking.js'
 import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
+import { capitalizeName } from '../utils/formatName.js'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -30,7 +31,7 @@ export default function ContactPage() {
 
     const total = questions.length
     const result = await registerGift({
-      name: name.trim(),
+      name: capitalizeName(name).trim(),
       email: email.trim(),
       phone: phone.trim(),
       specialty: doctor.specialty,
@@ -80,7 +81,8 @@ export default function ContactPage() {
             type="text"
             placeholder="Dr. Shivangi Mittal"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(capitalizeName(e.target.value))}
+            autoCapitalize="words"
             autoFocus
           />
         </label>

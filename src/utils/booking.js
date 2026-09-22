@@ -65,6 +65,41 @@ export async function checkGiftEligibility(phone) {
 }
 
 /**
+ * Saves name/mobile/specialty/category/clinic the instant the registration
+ * form is submitted — before the quiz even starts — so the Sheet has a row
+ * for this doctor from the first step. Every later write for this phone
+ * number (claimGift, bookSlot, registerGift) finds that same row and
+ * upgrades it in place rather than adding another — see registerDoctor()
+ * in google-apps-script-booking.gs. Best-effort like claimGift(): a network
+ * hiccup here shouldn't hold up the quiz, it just means the row starts
+ * later, at whichever of those steps first succeeds.
+ */
+export async function registerDoctor(doctor) {
+  if (!CONFIG.bookingEndpoint) return { ok: false, reason: 'config' }
+
+  try {
+    const res = await fetch(CONFIG.bookingEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'registerDoctor',
+        name: doctor?.name || '',
+        phone: doctor?.mobile || '',
+        specialty: doctor?.specialty || '',
+        category: doctor?.category || '',
+        clinic: doctor?.hasClinic || '',
+      }),
+      redirect: 'follow',
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (e) {
+    console.warn('Could not save registration details', e)
+    return { ok: false, reason: 'network' }
+  }
+}
+
+/**
  * Spends one unit of a gift's stock the moment the wheel lands on it (see
  * GiftPage.jsx) — this is what lets a limited gift actually run out across
  * every doctor spinning, not just this one browser tab. Best-effort: a

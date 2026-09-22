@@ -129,7 +129,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks onProceed={() => setStep(STEPS.REGISTER)} />
     </div>
   )
 }

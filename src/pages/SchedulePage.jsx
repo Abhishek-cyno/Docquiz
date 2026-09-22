@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import { fetchSlots, bookSlot } from '../utils/booking.js'
 import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
+import { capitalizeName } from '../utils/formatName.js'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -100,7 +101,7 @@ export default function SchedulePage() {
     const result = await bookSlot({
       date: selectedDate,
       time: selectedTime,
-      name: name.trim(),
+      name: capitalizeName(name).trim(),
       email: email.trim(),
       phone: phone.trim(),
       specialty: doctor.specialty,
@@ -152,7 +153,7 @@ export default function SchedulePage() {
       <div style={{ textAlign: 'center', marginBottom: 22 }}>
         <h2 className="card__title">Schedule a Meeting 📅</h2>
         <p className="card__sub" style={{ margin: '6px auto 0' }}>
-          Pick a date &amp; time that works for you. Our representative will visit you and hand over the gift you won — <strong>{gift?.title}</strong> — in person.
+          Pick a date &amp; time that works for you. Our representative will visit you and hand over the gift you won — in person.
         </p>
       </div>
 
@@ -233,7 +234,8 @@ export default function SchedulePage() {
                 type="text"
                 placeholder="Dr. Shivangi Mittal"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setName(capitalizeName(e.target.value))}
+                autoCapitalize="words"
               />
             </label>
 
