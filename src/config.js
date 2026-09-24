@@ -33,5 +33,5 @@ export const CONFIG = {
   // your own address, and hands the booking to Pabbly for WhatsApp.
   // Availability rules and the Pabbly webhook URL live in that Sheet, not
   // here, so the webhook never ships inside the public JS bundle.
-  bookingEndpoint: 'https://script.google.com/macros/s/AKfycbxzYXisvqQYV3En9heK7l2TAvAn3BGEBRZbKIIX9Y2im0aTiO7HuRtWF5v9EkD89Qsz/exec',
+  bookingEndpoint: 'https://script.google.com/macros/s/AKfycbzwsvU3-HV18j5U16OrdW6c757sPlj4AWHxo-h3pmY-LjYwtdPMGWYKG5u_u7HUS7TS/exec',
 }
