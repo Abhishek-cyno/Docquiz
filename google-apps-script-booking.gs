@@ -335,7 +335,7 @@ function doPost(e) {
 
     var bookingRow = [
       new Date(), ref, slotKey, date, time, 'confirmed',
-      data.name || '', data.email || '', data.phone || '',
+      data.name || '', data.email || '', phoneForSheet(data.phone),
       data.specialty || '', data.category || '',
       data.score, data.total, data.percent,
       data.gift || '', JSON.stringify(data.answers || []), eventId,
@@ -440,7 +440,7 @@ function claimGift(data) {
       // these three steps ever creating a second row for the same phone.
       var claimRow = [
         new Date(), prior ? prior.ref : makeRef(), '', '', '', 'prize-claimed',
-        data.name || '', '', data.phone || '',
+        data.name || '', '', phoneForSheet(data.phone),
         data.specialty || '', data.category || '',
         '', '', '', title, '[]', '', data.clinic || '',
       ];
@@ -504,7 +504,7 @@ function registerGift(data) {
     if (existing && (existing.status === 'registered' || existing.status === 'prize-claimed')) {
       var claimedRow = [
         new Date(), existing.ref, '', '', '', 'no-visit',
-        data.name || '', data.email || '', data.phone || '',
+        data.name || '', data.email || '', phoneForSheet(data.phone),
         data.specialty || '', data.category || '',
         data.score, data.total, data.percent,
         data.gift || existing.gift || '', JSON.stringify(data.answers || []), '',
@@ -517,7 +517,7 @@ function registerGift(data) {
       ref = makeRef();
       bookingsSheet().appendRow([
         new Date(), ref, '', '', '', 'no-visit',
-        data.name || '', data.email || '', data.phone || '',
+        data.name || '', data.email || '', phoneForSheet(data.phone),
         data.specialty || '', data.category || '',
         data.score, data.total, data.percent,
         data.gift || '', JSON.stringify(data.answers || []), '',
@@ -572,7 +572,7 @@ function registerDoctor(data) {
     var ref = existing ? existing.ref : makeRef();
     var row = [
       new Date(), ref, '', '', '', 'registered',
-      data.name || '', '', data.phone || '',
+      data.name || '', '', phoneForSheet(data.phone),
       data.specialty || '', data.category || '',
       '', '', '', '', '[]', '',
       data.clinic || '',
@@ -755,6 +755,11 @@ function findExistingBooking(email, phone) {
   if (!normEmail && !normPhone) return null;
 
   var rows = sheet.getRange(2, 1, lastRow - 1, BOOKING_HEADERS.length).getDisplayValues();
+  // Older deployments may have stored "+91 ..." as a broken formula. The
+  // formula text still contains the digits, so use it as a fallback while
+  // those rows are being repaired.
+  var phoneFormulas = sheet.getRange(2, COL.phone + 1, lastRow - 1, 1).getFormulas();
+  var match = null;
 
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
@@ -762,10 +767,10 @@ function findExistingBooking(email, phone) {
     if (status === 'cancelled') continue;
 
     var rowEmail = String(r[COL.email] || '').trim().toLowerCase();
-    var rowPhone = digitsOnly(r[COL.phone]).slice(-10);
+    var rowPhone = phoneDigitsFromSheet(r[COL.phone], phoneFormulas[i][0]);
 
     if ((normEmail && rowEmail === normEmail) || (normPhone && rowPhone === normPhone)) {
-      return {
+      var candidate = {
         row: i + 2,
         ref: r[COL.ref],
         date: String(r[COL.date] || ''),
@@ -773,10 +778,92 @@ function findExistingBooking(email, phone) {
         gift: String(r[COL.gift] || ''),
         status: status,
       };
+      // If old duplicate rows exist, prefer the furthest-progressed record
+      // so a prize-claimed row cannot be treated as a fresh registration.
+      if (!match || bookingRowPriority(candidate) > bookingRowPriority(match)) match = candidate;
     }
   }
 
-  return null;
+  return match;
+}
+
+/** Returns a phone as local digits only, never a country-code formula. */
+function phoneDigitsFromSheet(displayValue, formulaValue) {
+  var digits = digitsOnly(displayValue);
+  if (digits.length < 10) digits = digitsOnly(formulaValue);
+  return digits.length >= 10 ? digits.slice(-10) : '';
+}
+
+function bookingRowPriority(row) {
+  var status = String(row.status || '').toLowerCase();
+  var priority = { registered: 1, 'prize-claimed': 2, confirmed: 3, 'no-visit': 3 }[status] || 0;
+  return priority + (String(row.gift || '').trim() ? 1 : 0);
+}
+
+/**
+ * One-time repair for rows created before phone numbers were plain text.
+ * It converts formula-error phones to 10 digits and merges duplicate rows
+ * for the same phone, retaining the earliest reference and latest progress.
+ * Run this manually once from the Apps Script editor after deploying.
+ */
+function repairBookingPhoneNumbers() {
+  var sheet = bookingsSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 'No booking rows to repair.';
+
+  var rowCount = lastRow - 1;
+  var values = sheet.getRange(2, 1, rowCount, BOOKING_HEADERS.length).getValues();
+  var display = sheet.getRange(2, 1, rowCount, BOOKING_HEADERS.length).getDisplayValues();
+  var formulas = sheet.getRange(2, COL.phone + 1, rowCount, 1).getFormulas();
+  var groups = {};
+
+  for (var i = 0; i < rowCount; i++) {
+    var phone = phoneDigitsFromSheet(display[i][COL.phone], formulas[i][0]);
+    if (!phone) continue;
+
+    sheet.getRange(i + 2, COL.phone + 1).setNumberFormat('@').setValue(phone);
+    if (!groups[phone]) groups[phone] = [];
+    groups[phone].push({ row: i + 2, index: i, phone: phone });
+  }
+
+  var rowsToDelete = [];
+  Object.keys(groups).forEach(function (phone) {
+    var group = groups[phone];
+    if (group.length < 2) return;
+
+    // Keep the earliest row/reference, but copy the most advanced state into it.
+    var canonical = group.slice().sort(function (a, b) { return a.row - b.row; })[0];
+    var best = group[0];
+    group.forEach(function (item) {
+      var itemState = {
+        status: String(display[item.index][COL.status] || ''),
+        gift: String(display[item.index][COL.gift] || ''),
+      };
+      var bestState = {
+        status: String(display[best.index][COL.status] || ''),
+        gift: String(display[best.index][COL.gift] || ''),
+      };
+      if (bookingRowPriority(itemState) > bookingRowPriority(bestState)) best = item;
+    });
+
+    var merged = values[best.index].slice();
+    merged[COL.ref] = values[canonical.index][COL.ref] || merged[COL.ref];
+    merged[COL.phone] = phone;
+    sheet.getRange(canonical.row, 1, 1, merged.length).setValues([merged]);
+
+    group.forEach(function (item) {
+      if (item.row !== canonical.row) rowsToDelete.push(item.row);
+    });
+  });
+
+  rowsToDelete.sort(function (a, b) { return b - a; }).forEach(function (row) {
+    sheet.deleteRow(row);
+  });
+  forceTextColumns(sheet);
+
+  var message = 'Repaired phone numbers and merged ' + rowsToDelete.length + ' duplicate row(s).';
+  SpreadsheetApp.getActiveSpreadsheet().toast(message);
+  return message;
 }
 
 /**
@@ -1187,15 +1274,24 @@ function bookingsSheet() {
     sheet = ss.insertSheet(TAB.bookings);
     sheet.appendRow(BOOKING_HEADERS);
     sheet.setFrozenRows(1);
-    forceTextColumns(sheet);
   }
   if (sheet.getLastRow() === 0) sheet.appendRow(BOOKING_HEADERS);
+  // A phone arrives as "+91 98765 43210". Keep the column plain text so
+  // Google Sheets does not interpret the leading + as a formula.
+  forceTextColumns(sheet);
   return sheet;
 }
 
-/** Keep Slot Key / Date / Time as literal text — see normaliseSlotKey. */
+/** Keep Slot Key / Date / Time / Phone as literal text. */
 function forceTextColumns(sheet) {
   sheet.getRange('C:E').setNumberFormat('@');
+  sheet.getRange('I:I').setNumberFormat('@');
+}
+
+/** Store only the local 10-digit phone number in the Sheet. */
+function phoneForSheet(value) {
+  var digits = digitsOnly(value);
+  return digits.length >= 10 ? digits.slice(-10) : digits;
 }
 
 // A single doGet for /slots calls tab() via readSettings, readAvailability,
