@@ -471,7 +471,8 @@ function validate(data) {
 function validateContact(data) {
   if (!data) return 'Empty request.';
   if (!String(data.name || '').trim()) return 'Name is required.';
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(data.email || '').trim())) return 'A valid email is required.';
+  var email = String(data.email || '').trim();
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'Please enter a valid email address.';
   if (digitsOnly(data.phone).length < 10) return 'A valid WhatsApp number is required.';
   return null;
 }
@@ -748,7 +749,9 @@ function findExistingBooking(email, phone) {
   if (lastRow < 2) return null;
 
   var normEmail = String(email || '').trim().toLowerCase();
-  var normPhone = digitsOnly(phone);
+  // Compare on the last 10 digits so "+91 98765 43210" (booking form) and
+  // "9876543210" (registration) land on the same row.
+  var normPhone = digitsOnly(phone).slice(-10);
   if (!normEmail && !normPhone) return null;
 
   var rows = sheet.getRange(2, 1, lastRow - 1, BOOKING_HEADERS.length).getDisplayValues();
@@ -759,7 +762,7 @@ function findExistingBooking(email, phone) {
     if (status === 'cancelled') continue;
 
     var rowEmail = String(r[COL.email] || '').trim().toLowerCase();
-    var rowPhone = digitsOnly(r[COL.phone]);
+    var rowPhone = digitsOnly(r[COL.phone]).slice(-10);
 
     if ((normEmail && rowEmail === normEmail) || (normPhone && rowPhone === normPhone)) {
       return {
@@ -861,7 +864,8 @@ function sendEmails(data, date, time, labels, ref) {
   // MailApp sends as whichever Google account this deployment runs under —
   // see the note on SEND_BOOKING_EMAILS above for how that becomes
   // rx@eqova.in without touching the personal account's own Gmail settings.
-  MailApp.sendEmail({
+  // Email is optional on the booking form — no address, no doctor mail.
+  if (data.email) MailApp.sendEmail({
     to: data.email,
     name: brand,
     subject: 'Your meeting is confirmed — ' + labels.date + ', ' + labels.time,

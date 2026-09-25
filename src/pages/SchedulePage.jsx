@@ -3,6 +3,8 @@ import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import { fetchSlots, bookSlot } from '../utils/booking.js'
 import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import { capitalizeName } from '../utils/formatName.js'
+import PhoneInput from '../components/PhoneInput.jsx'
+import { splitPhone, joinPhone } from '../utils/phone.js'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -24,7 +26,8 @@ export default function SchedulePage() {
 
   const [name, setName] = useState(doctor.name || '')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState(doctor.mobile || '')
+  const [countryCode, setCountryCode] = useState(() => splitPhone(doctor.mobile).code)
+  const [phone, setPhone] = useState(() => splitPhone(doctor.mobile).number)
 
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
@@ -89,8 +92,10 @@ export default function SchedulePage() {
   async function onConfirm() {
     if (!selectedDate || !selectedTime) return setFormError('Please pick a date and time.')
     if (!name.trim()) return setFormError('Please enter your name.')
-    if (!EMAIL_RE.test(email.trim())) return setFormError('Please enter a valid email address.')
-    if (phone.replace(/\D/g, '').length < 10) return setFormError('Please enter a valid WhatsApp number.')
+    if (email.trim() && !EMAIL_RE.test(email.trim())) return setFormError('Please enter a valid email address.')
+    if (phone.length !== 10) return setFormError('Please enter a valid 10-digit WhatsApp number.')
+
+    const fullPhone = joinPhone(countryCode, phone)
 
     setFormError('')
     setNotice('')
@@ -103,7 +108,7 @@ export default function SchedulePage() {
       time: selectedTime,
       name: capitalizeName(name).trim(),
       email: email.trim(),
-      phone: phone.trim(),
+      phone: fullPhone,
       specialty: doctor.specialty,
       category: doctor.category,
       clinic: doctor.hasClinic,
@@ -125,7 +130,7 @@ export default function SchedulePage() {
         timeLabel: result.timeLabel,
         ref: result.ref,
         email: email.trim(),
-        phone: phone.trim(),
+        phone: fullPhone,
       })
       setStep(STEPS.SCHEDULED)
       return
@@ -143,7 +148,7 @@ export default function SchedulePage() {
     setFormError(result.error || 'Something went wrong. Please try again.')
   }
 
-  const ready = selectedDate && selectedTime && name.trim() && email.trim() && phone.trim()
+  const ready = selectedDate && selectedTime && name.trim() && phone.length === 10
 
   return (
     <div className="card schedule-card">
@@ -240,7 +245,9 @@ export default function SchedulePage() {
             </label>
 
             <label className="field">
-              <span className="field__label">Email</span>
+              <span className="field__label">
+                Email <span className="field__hint">(optional)</span>
+              </span>
               <input
                 className="field__input"
                 type="email"
@@ -250,19 +257,15 @@ export default function SchedulePage() {
               />
             </label>
 
-            <label className="field">
-              <span className="field__label">
-                WhatsApp Number <span className="field__hint">(for your confirmation)</span>
-              </span>
-              <input
-                className="field__input"
-                type="tel"
-                inputMode="tel"
-                placeholder="+91 98765 43210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </label>
+            <PhoneInput
+              id="schedule-phone"
+              label="WhatsApp Number"
+              hint="(for your confirmation)"
+              code={countryCode}
+              number={phone}
+              onCodeChange={setCountryCode}
+              onNumberChange={setPhone}
+            />
 
             {notice && <p className="form__notice">{notice}</p>}
             {formError && <p className="form__error">{formError}</p>}

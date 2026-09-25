@@ -4,11 +4,14 @@ import Float from '../components/motion/Float.jsx'
 import { capitalizeName } from '../utils/formatName.js'
 import { registerDoctor } from '../utils/booking.js'
 import doctorFormImg from '../assets/doctor-form.png'
+import PhoneInput from '../components/PhoneInput.jsx'
+import { splitPhone, joinPhone } from '../utils/phone.js'
 
 export default function RegisterPage() {
   const { setStep, doctor, setDoctor, specialties, categories, contentLoading } = useFlow()
   const [name, setName] = useState(doctor.name)
-  const [mobile, setMobile] = useState(doctor.mobile)
+  const [countryCode, setCountryCode] = useState(() => splitPhone(doctor.mobile).code)
+  const [mobile, setMobile] = useState(() => splitPhone(doctor.mobile).number)
   const [specialty, setSpecialty] = useState(doctor.specialty)
   const [category, setCategory] = useState(doctor.category)
   const [hasClinic, setHasClinic] = useState(doctor.hasClinic)
@@ -23,12 +26,12 @@ export default function RegisterPage() {
   function onSubmit(e) {
     e.preventDefault()
     if (!name.trim()) return setError('Please enter your name.')
-    if (mobile.replace(/\D/g, '').length < 10) return setError('Please enter a valid mobile number.')
+    if (mobile.length !== 10) return setError('Please enter a valid 10-digit mobile number.')
     if (!specialty) return setError('Please select your specialty.')
     if (!category) return setError('Please select your category.')
     if (!hasClinic) return setError('Please tell us whether you have your own clinic.')
     setError('')
-    const doctorDetails = { name: capitalizeName(name).trim(), mobile: mobile.trim(), specialty, category, hasClinic }
+    const doctorDetails = { name: capitalizeName(name).trim(), mobile: joinPhone(countryCode, mobile), specialty, category, hasClinic }
     setDoctor(doctorDetails)
     // Best-effort, not awaited: this is what puts the doctor's first row in
     // the Sheet (see registerDoctor() in google-apps-script-booking.gs), but
@@ -59,18 +62,14 @@ export default function RegisterPage() {
             />
           </label>
 
-          <label className="field">
-            <span className="field__label">Mobile Number</span>
-            <input
-              className="field__input"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              placeholder="+91 98765 43210"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-            />
-          </label>
+          <PhoneInput
+            id="register-mobile"
+            label="Mobile Number"
+            code={countryCode}
+            number={mobile}
+            onCodeChange={setCountryCode}
+            onNumberChange={setMobile}
+          />
 
           <label className="field">
             <span className="field__label">Specialty</span>
