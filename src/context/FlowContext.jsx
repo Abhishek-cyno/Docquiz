@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { pickRandom } from '../utils/shuffle.js'
-import { fetchAppData } from '../utils/fetchAppData.js'
+import { fetchAppData, bundledAppData } from '../utils/fetchAppData.js'
 import { fetchGifts } from '../utils/fetchGifts.js'
 import { capitalizeName } from '../utils/formatName.js'
 import { CONFIG } from '../config.js'
@@ -13,6 +13,37 @@ const EMPTY_MEETING = {
 }
 
 const EMPTY_DOCTOR = { name: '', mobile: '', specialty: '', category: '', hasClinic: '' }
+
+const EMPTY_GIFTS = { premium: [], standard: [], superpremium: [], consolation: [] }
+
+// Apps Script can take 5–30s to answer a cold request, so the last good copy
+// of each sheet is kept on the device and shown instantly while a fresh copy
+// loads in the background.
+const CONTENT_CACHE_KEY = 'docquiz_content_v1'
+const GIFTS_CACHE_KEY = 'docquiz_gifts_v1'
+// A brand-new device has no cached copy; past this point the bundled
+// specialties are used so the registration form is never stuck waiting.
+const CONTENT_FALLBACK_MS = 8000
+
+function readCache(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function writeCache(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Storage full or blocked — the app still works, just without the cache.
+  }
+}
+
+function hasGifts(g) {
+  return !!(g && g.premium?.length && g.standard?.length)
+}
 
 export const STEPS = {
   LANDING: 'landing',
@@ -49,32 +80,70 @@ export function FlowProvider({ children }) {
   // Specialties/categories/questions can live in a Google Sheet (see
   // config.js -> dataEndpoint) so non-developers can edit them without a
   // redeploy. Falls back to the bundled JSON if that's unset or fails.
-  const [contentBank, setContentBank] = useState({ specialties: [], categories: [], questions: {} })
+  const [cachedContent] = useState(() => readCache(CONTENT_CACHE_KEY))
+  const [cachedGifts] = useState(() => {
+    const g = readCache(GIFTS_CACHE_KEY)
+    return hasGifts(g) ? g : null
+  })
+  const [contentBank, setContentBank] = useState(
+    cachedContent || { specialties: [], categories: [], questions: {} }
+  )
   // Prize wheel catalog — lives entirely in the booking Sheet's Gifts tab
   // (see fetchGifts.js). No bundled fallback: an unreachable endpoint
   // leaves this empty rather than quietly serving stale hard-coded prizes.
   // superpremium/consolation are optional tiers (jackpot prizes, and a
   // "no real prize" outcome) — see the PRIZE WHEEL note in
   // google-apps-script-booking.gs.
-  const [gifts, setGifts] = useState({ premium: [], standard: [], superpremium: [], consolation: [] })
-  const [contentLoading, setContentLoading] = useState(true)
+  const [gifts, setGifts] = useState(cachedGifts || EMPTY_GIFTS)
+  const [contentLoading, setContentLoading] = useState(!cachedContent)
+  const [giftsLoading, setGiftsLoading] = useState(!cachedGifts)
+
+  // A failed fetch comes back empty; never let that wipe out a good copy.
+  const applyGifts = useCallback((giftData) => {
+    if (hasGifts(giftData)) {
+      setGifts(giftData)
+      writeCache(GIFTS_CACHE_KEY, giftData)
+    }
+    setGiftsLoading(false)
+  }, [])
 
   const reloadGifts = useCallback(async () => {
     const giftData = await fetchGifts()
-    setGifts(giftData)
+    applyGifts(giftData)
     return giftData
-  }, [])
+  }, [applyGifts])
 
+  // The two sheets load independently so the faster one isn't held back by
+  // the slower, and neither blocks the landing page.
   useEffect(() => {
     let active = true
-    Promise.all([fetchAppData(), fetchGifts()]).then(([data, giftData]) => {
-      if (active) {
+
+    const fallbackTimer = cachedContent ? null : setTimeout(() => {
+      if (!active) return
+      setContentBank((current) => (current.specialties.length ? current : bundledAppData()))
+      setContentLoading(false)
+    }, CONTENT_FALLBACK_MS)
+
+    fetchAppData().then((data) => {
+      if (!active) return
+      clearTimeout(fallbackTimer)
+      if (data.source === 'remote') {
         setContentBank(data)
-        setGifts(giftData)
-        setContentLoading(false)
+        writeCache(CONTENT_CACHE_KEY, data)
+      } else if (!cachedContent) {
+        setContentBank(data)
       }
+      setContentLoading(false)
     })
-    return () => { active = false }
+
+    fetchGifts().then((giftData) => {
+      if (active) applyGifts(giftData)
+    })
+
+    return () => {
+      active = false
+      clearTimeout(fallbackTimer)
+    }
   }, [])
 
   // Build the randomised 3-question quiz for this doctor.
@@ -150,6 +219,7 @@ export function FlowProvider({ children }) {
     specialties: contentBank.specialties,
     categories: contentBank.categories,
     contentLoading,
+    giftsLoading,
     questions, buildQuiz,
     answers, recordAnswer,
     score,

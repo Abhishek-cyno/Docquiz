@@ -12,7 +12,7 @@ import { SKIP_QUIZ } from '../utils/flowMode.js'
  * out, instead of vanishing the instant the screen underneath changes.
  */
 export default function GiftPage() {
-  const { score, doctor } = useFlow()
+  const { score, doctor, giftsLoading } = useFlow()
   const [eligibility, setEligibility] = useState({ status: 'checking', error: '' })
   const [eligibilityRetry, setEligibilityRetry] = useState(0)
 
@@ -32,7 +32,7 @@ export default function GiftPage() {
   // A score of 0 never reaches the wheel — except in the ?skipquiz=1 variant,
   // where there's no quiz to score, so a 0 is expected and the wheel still
   // waits on the real eligibility check.
-  const checking = (SKIP_QUIZ || score !== 0) && eligibility.status === 'checking'
+  const checking = (SKIP_QUIZ || score !== 0) && (eligibility.status === 'checking' || giftsLoading)
 
   function retry() {
     setEligibility({ status: 'checking', error: '' })
@@ -42,12 +42,12 @@ export default function GiftPage() {
   return (
     <>
       <LoadingOverlay show={checking} />
-      <GiftScreen eligibility={eligibility} onRetry={retry} />
+      <GiftScreen eligibility={eligibility} onRetry={retry} checking={checking} />
     </>
   )
 }
 
-function GiftScreen({ eligibility, onRetry }) {
+function GiftScreen({ eligibility, onRetry, checking }) {
   const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts, doctor } = useFlow()
   const [spinning, setSpinning] = useState(false)
   const [claimError, setClaimError] = useState('')
@@ -72,7 +72,7 @@ function GiftScreen({ eligibility, onRetry }) {
   }
 
   // The loading overlay (see GiftPage) covers the screen while this runs.
-  if (eligibility.status === 'checking') return null
+  if (checking) return null
 
   if (eligibility.status === 'already-won') {
     return (

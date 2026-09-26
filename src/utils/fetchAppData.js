@@ -8,6 +8,10 @@ const FALLBACK = {
   questions: questionsData,
 }
 
+export function bundledAppData() {
+  return { ...FALLBACK, source: 'bundled' }
+}
+
 // Basic shape + non-empty check so a misconfigured or not-yet-populated
 // sheet (e.g. the tabs don't exist yet) degrades to the fallback instead
 // of handing the app an empty specialty list.
