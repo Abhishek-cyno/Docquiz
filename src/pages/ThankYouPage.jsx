@@ -86,10 +86,6 @@ export default function ThankYouPage() {
                 <b style={{ marginLeft: 'auto' }}>{gift.title}</b>
               </div>
             )}
-            <div className="details__row">
-              <span className="ico">🏅</span> <span>Quiz score</span>
-              <b style={{ marginLeft: 'auto' }}>{score}/{questions.length}</b>
-            </div>
             {gift.tier !== 'consolation' && (
               <div className="details__row">
                 <span className="ico">🚚</span> <span>Delivery</span>

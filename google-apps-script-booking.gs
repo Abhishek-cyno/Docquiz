@@ -367,7 +367,7 @@ function doPost(e) {
       catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
     }
 
-    try { notifyPabbly(data, date, time, labels, ref); }
+    try { notifyPabbly(data, ref, { date: date, time: time, labels: labels }); }
     catch (waErr) { console.error('Pabbly webhook failed for ' + ref + ': ' + waErr); }
 
     return json({
@@ -535,6 +535,9 @@ function registerGift(data) {
 
   try { sendNoVisitEmails(data, ref); }
   catch (mailErr) { console.error('Email failed for ' + ref + ': ' + mailErr); }
+
+  try { notifyPabbly(data, ref); }
+  catch (waErr) { console.error('Pabbly webhook failed for ' + ref + ': ' + waErr); }
 
   return json({ ok: true, ref: ref });
 }
@@ -1092,20 +1095,42 @@ function noVisitEmailHtml(data, ref, settings) {
 }
 
 /**
- * Hands the booking to Pabbly Connect, which forwards it to Pabbly
- * Chatflow to actually send the WhatsApp template. Keeping the webhook
- * URL in the Settings tab (not in config.js) means it never ships inside
- * the public JS bundle.
+ * Hands the booking (or gift-only, no-clinic confirmation) to Pabbly Connect,
+ * which forwards it to an Email action and to Pabbly Chatflow for WhatsApp.
+ * Keeping the webhook URL(s) in the Settings tab (not in config.js) means
+ * they never ship inside the public JS bundle.
  *
- * Field names below are what you map to your Chatflow template variables,
- * so keep them stable once the workflow is wired up.
+ * Clinic and no-clinic doctors go to TWO SEPARATE webhook URLs —
+ * `pabblyWebhookClinic` / `pabblyWebhookNonClinic` in Settings — one per
+ * Pabbly Connect workflow, rather than one shared workflow with a Router
+ * step. Pabbly Connect only lets you add a Router as a brand-new step at
+ * the end of a workflow, not spliced between existing steps, so branching
+ * an already-built Webhook → Email → Chatflow workflow is awkward; cloning
+ * that workflow once per branch and pointing each clone at the matching
+ * template content is far simpler. `pabblyWebhook` (no suffix) is kept as a
+ * fallback both branches use if the specific one is blank, so a
+ * single-workflow setup (only Clinic templates, say) still works untouched.
+ *
+ * `when` is omitted for the no-clinic gift flow, which has no slot — date,
+ * time and whenLabel are then sent as empty strings so the workflow can
+ * still reference those merge fields without erroring.
+ *
+ * `hasClinic` ('yes' | 'no', mirrored from `event`) is still included in
+ * the payload even though it now also picks the URL — handy if you ever
+ * want to fold the two workflows back into one Router-based workflow later.
+ *
+ * Field names below are what you map to your Chatflow/email template
+ * variables, so keep them stable once the workflow is wired up.
  */
-function notifyPabbly(data, date, time, labels, ref) {
+function notifyPabbly(data, ref, when) {
   var settings = readSettings();
-  if (!settings.pabblyWebhook) return;
+  var hasClinic = data.clinic === 'yes';
+  var webhookUrl = (hasClinic ? settings.pabblyWebhookClinic : settings.pabblyWebhookNonClinic) || settings.pabblyWebhook;
+  if (!webhookUrl) return;
 
   var payload = {
-    event: 'booking_confirmed',
+    event: hasClinic ? 'booking_confirmed' : 'gift_confirmed',
+    hasClinic: hasClinic ? 'yes' : 'no',
     ref: ref,
     name: data.name || '',
     phone: waNumber(data.phone),          // 919127072000 — what Chatflow wants
@@ -1113,11 +1138,11 @@ function notifyPabbly(data, date, time, labels, ref) {
     email: data.email || '',
     specialty: data.specialty || '',
     category: data.category || '',
-    date: date,
-    time: time,
-    dateLabel: labels.date,
-    timeLabel: labels.time,
-    whenLabel: labels.date + ' at ' + labels.time + ' IST',
+    date: when ? when.date : '',
+    time: when ? when.time : '',
+    dateLabel: when ? when.labels.date : '',
+    timeLabel: when ? when.labels.time : '',
+    whenLabel: when ? (when.labels.date + ' at ' + when.labels.time + ' IST') : '',
     gift: data.gift || '',
     score: data.score,
     total: data.total,
@@ -1126,7 +1151,7 @@ function notifyPabbly(data, date, time, labels, ref) {
     timezone: TZ,
   };
 
-  UrlFetchApp.fetch(settings.pabblyWebhook, {
+  UrlFetchApp.fetch(webhookUrl, {
     method: 'post',
     contentType: 'application/json',
     payload: JSON.stringify(payload),
@@ -1436,12 +1461,20 @@ function setupSheets() {
     // fixed venue to put on the invite.
     ['meetingTitle', 'Cyno Pharma — Doctor Meeting'],
     ['notifyEmail', ''],
+    // Fallback webhook, used by either branch when its specific URL below
+    // is blank — see notifyPabbly().
     ['pabblyWebhook', ''],
+    ['pabblyWebhookClinic', ''],
+    ['pabblyWebhookNonClinic', ''],
   ]);
   // Same problem as Availability above, but Settings is key/value rows
   // rather than columns — add the row only if it's genuinely missing.
   ensureSettingRow(ss.getSheetByName(TAB.settings), 'defaultCapacity', 1);
   ensureSettingRow(ss.getSheetByName(TAB.settings), 'startDate', '2026-10-05');
+  // Lets an already-deployed sheet (from before the Clinic/Non-Clinic
+  // Pabbly split) pick up the two new keys without a manual row add.
+  ensureSettingRow(ss.getSheetByName(TAB.settings), 'pabblyWebhookClinic', '');
+  ensureSettingRow(ss.getSheetByName(TAB.settings), 'pabblyWebhookNonClinic', '');
 
   seed(ss, TAB.bookings, BOOKING_HEADERS, []);
   forceTextColumns(ss.getSheetByName(TAB.bookings));
@@ -1453,7 +1486,7 @@ function setupSheets() {
   // exactly like today's behaviour.
   ensureColumns(ss.getSheetByName(TAB.gifts), ['stock', 'weight']);
 
-  SpreadsheetApp.getActiveSpreadsheet().toast('Tabs ready. Fill in Settings ▸ notifyEmail and pabblyWebhook.');
+  SpreadsheetApp.getActiveSpreadsheet().toast('Tabs ready. Fill in Settings ▸ notifyEmail, pabblyWebhookClinic and pabblyWebhookNonClinic.');
 }
 
 /**
