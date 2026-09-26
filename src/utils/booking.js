@@ -39,7 +39,27 @@ export async function fetchSlots() {
  * booking sheet is the shared source of truth, so this also catches people
  * returning from a different device or browser.
  */
-export async function checkGiftEligibility(phone) {
+// Started at registration so the answer is usually ready by the time the
+// gift page mounts. Consumed once, so a retry always hits the server fresh.
+const prefetchedEligibility = new Map()
+
+export function prefetchGiftEligibility(phone) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (digits.length < 10) return
+  prefetchedEligibility.set(digits, fetchGiftEligibility(digits))
+}
+
+export function checkGiftEligibility(phone) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  const pending = prefetchedEligibility.get(digits)
+  if (pending) {
+    prefetchedEligibility.delete(digits)
+    return pending
+  }
+  return fetchGiftEligibility(phone)
+}
+
+async function fetchGiftEligibility(phone) {
   if (!CONFIG.bookingEndpoint) {
     return { ok: false, reason: 'config', error: 'Prize validation is not configured.' }
   }

@@ -1,47 +1,42 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useFlow } from '../context/FlowContext.jsx'
 import { saveResponse } from '../utils/storage.js'
 import Float from '../components/motion/Float.jsx'
-import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import calImg from '../assets/cal.png'
 import meetImg from '../assets/meet.png'
 
 export default function ScheduledPage() {
   const { doctor, score, questions, answers, gift, meeting, reset } = useFlow()
-  const [saving, setSaving] = useState(true)
   const saved = useRef(false)
 
   // The booking script has already recorded the full response in its own
   // Bookings sheet. This second write keeps the original responses sheet
   // (config.sheetEndpoint) and the localStorage backup filling as before —
   // clear sheetEndpoint in config.js if you'd rather have a single source.
+  // Runs in the background — it's a backup, so it never blocks the screen.
   useEffect(() => {
     if (saved.current) return
     saved.current = true
-    ;(async () => {
-      await saveResponse({
-        name: doctor.name,
-        email: meeting.email,
-        phone: meeting.phone,
-        specialty: doctor.specialty,
-        category: doctor.category,
-        clinic: doctor.hasClinic,
-        score,
-        total: questions.length,
-        percent: questions.length ? Math.round((score / questions.length) * 100) : 0,
-        gift: gift?.title || '',
-        meetingDate: meeting.dateLabel,
-        meetingTime: meeting.timeLabel,
-        answers,
-      })
-      setSaving(false)
-    })()
+    saveResponse({
+      name: doctor.name,
+      email: meeting.email,
+      phone: meeting.phone,
+      specialty: doctor.specialty,
+      category: doctor.category,
+      clinic: doctor.hasClinic,
+      score,
+      total: questions.length,
+      percent: questions.length ? Math.round((score / questions.length) * 100) : 0,
+      gift: gift?.title || '',
+      meetingDate: meeting.dateLabel,
+      meetingTime: meeting.timeLabel,
+      answers,
+    })
   }, [])
 
   return (
     <div className="scheduled">
-      <LoadingOverlay show={saving} />
 
       <div className="scheduled__art">
         <Float amplitude={6} duration={6.5}>
@@ -80,8 +75,8 @@ export default function ScheduledPage() {
 
         <p className="card__sub">Our representative will get in touch with you soon.</p>
 
-        <button className="btn btn--primary btn--lg" onClick={reset} disabled={saving}>
-          {saving ? 'Saving…' : 'Go to Home'}
+        <button className="btn btn--primary btn--lg" onClick={reset}>
+          Go to Home
         </button>
       </div>
 

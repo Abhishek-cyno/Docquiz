@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import Float from '../components/motion/Float.jsx'
 import { capitalizeName } from '../utils/formatName.js'
-import { registerDoctor } from '../utils/booking.js'
+import { registerDoctor, prefetchGiftEligibility } from '../utils/booking.js'
 import doctorFormImg from '../assets/doctor-form.png'
 import PhoneInput from '../components/PhoneInput.jsx'
 import { splitPhone, joinPhone } from '../utils/phone.js'
@@ -40,6 +40,7 @@ export default function RegisterPage() {
     // gift/booking steps later fall back to creating that row themselves if
     // this one never lands.
     registerDoctor(doctorDetails)
+    prefetchGiftEligibility(doctorDetails.mobile)
     setStep(SKIP_QUIZ ? STEPS.GIFT : STEPS.QUIZINTRO)
   }
 

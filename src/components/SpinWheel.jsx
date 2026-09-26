@@ -99,7 +99,7 @@ export default function SpinWheel({ items, winnable, onResult, spinning, disable
     const index = pickWinnerIndex(items, winnable)
     if (index < 0) return
     pending.current = items[index]
-    onSpinStart()
+    onSpinStart(items[index])
 
     const target = rotationForIndex(index, total)
     const current = ((rotation % 360) + 360) % 360

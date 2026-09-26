@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
@@ -51,6 +51,7 @@ function GiftScreen({ eligibility, onRetry }) {
   const { score, gift, setGift, setStep, hasClinic, giftWheel, winnableGifts, reloadGifts, doctor } = useFlow()
   const [spinning, setSpinning] = useState(false)
   const [claimError, setClaimError] = useState('')
+  const claimRef = useRef(null)
 
   if (!SKIP_QUIZ && score === 0) {
     return (
@@ -99,10 +100,19 @@ function GiftScreen({ eligibility, onRetry }) {
     )
   }
 
+  // The claim is fired as the wheel starts turning, so the server round-trip
+  // overlaps the spin animation instead of starting after it.
+  function onSpinStart(target) {
+    setClaimError('')
+    setSpinning(true)
+    claimRef.current = claimGift(target.id, doctor)
+  }
+
   async function onResult(won) {
     // The Sheet is the source of truth. Do not announce a win until its
     // locked claim endpoint has reserved stock for this exact prize.
-    const claim = await claimGift(won.id, doctor)
+    const claim = await (claimRef.current || claimGift(won.id, doctor))
+    claimRef.current = null
     setSpinning(false)
     if (claim.ok) {
       setGift(won)
@@ -150,7 +160,7 @@ function GiftScreen({ eligibility, onRetry }) {
         spinning={spinning}
         disabled={!!gift}
         result={gift}
-        onSpinStart={() => { setClaimError(''); setSpinning(true) }}
+        onSpinStart={onSpinStart}
         onResult={onResult}
       />
 
