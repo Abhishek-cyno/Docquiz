@@ -1,12 +1,18 @@
 import { motion } from 'framer-motion'
 import { STEPS, useFlow } from '../context/FlowContext.jsx'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 // Named phases shown across the top of the flow. Doctors without a clinic
-// never book a meeting, so their journey is one phase shorter.
+// never book a meeting, so their journey is one phase shorter. The
+// ?skipquiz=1 variant (see flowMode.js) never visits the quiz phase at all,
+// so it drops out of the stepper rather than showing as instantly "done".
 const PHASES = ['Your Details', 'Quiz', 'Spin & Win', 'Schedule', 'Complete']
 const PHASES_NO_MEETING = ['Your Details', 'Quiz', 'Spin & Win', 'Complete']
+const PHASES_SKIP_QUIZ = ['Your Details', 'Spin & Win', 'Schedule', 'Complete']
+const PHASES_SKIP_QUIZ_NO_MEETING = ['Your Details', 'Spin & Win', 'Complete']
 
-// Which phase each step belongs to, indexed into PHASES.
+// Which phase each step belongs to, indexed into PHASES (or the
+// PHASES_SKIP_QUIZ* variants, once the Quiz phase collapses out below).
 const STEP_PHASE = {
   [STEPS.REGISTER]: 0,
   [STEPS.QUIZINTRO]: 1,
@@ -25,12 +31,19 @@ export default function Stepper({ step }) {
   if (active === undefined) return null // e.g. landing — no stepper
 
   // Only collapse once we actually know there's no meeting coming, so the
-  // stepper never grows a phase underneath a doctor mid-flow.
+  // stepper never grows a phase underneath a doctor mid-flow. 'Complete' is
+  // the last entry either way, so shift it down when the Schedule phase is
+  // missing (done against the full, quiz-inclusive numbering above).
   const noMeeting = doctor.hasClinic === 'no'
-  const phases = noMeeting ? PHASES_NO_MEETING : PHASES
-  // 'Complete' is the last entry either way, so shift it down when the
-  // Schedule phase is missing.
-  const activeIndex = noMeeting && active === 4 ? 3 : active
+  let activeIndex = noMeeting && active === 4 ? 3 : active
+
+  // Quiz never happens in the ?skipquiz=1 variant, so every phase after it
+  // shifts down by one to fill the gap it leaves in the stepper.
+  if (SKIP_QUIZ && activeIndex >= 1) activeIndex -= 1
+
+  const phases = SKIP_QUIZ
+    ? (noMeeting ? PHASES_SKIP_QUIZ_NO_MEETING : PHASES_SKIP_QUIZ)
+    : (noMeeting ? PHASES_NO_MEETING : PHASES)
 
   // On the final screens, mark everything complete.
   const allDone = step === STEPS.SCHEDULED || step === STEPS.THANKYOU

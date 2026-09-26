@@ -2,6 +2,7 @@ import { useReducedMotion } from 'framer-motion'
 import { Reveal, RevealGroup, RevealItem } from './motion/Reveal.jsx'
 import { ClipboardIcon, EcgIcon, GiftIcon } from './hero/MedicalIcons.jsx'
 import { EASE_OUT } from '../animations/motion.js'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 /* =========================================================
    HowItWorks — three step cards that fade up on scroll with a
@@ -36,8 +37,28 @@ const STEPS = [
   },
 ]
 
+// The ?skipquiz=1 variant (see flowMode.js) goes straight from registration
+// to the wheel, so the middle "Answer 3 questions" step never happens here.
+const STEPS_SKIP_QUIZ = [
+  {
+    Icon: ClipboardIcon,
+    tone: 'blue',
+    step: '01',
+    title: 'Tell us about you',
+    text: 'Name and specialty, quick and simple.',
+  },
+  {
+    Icon: GiftIcon,
+    tone: 'violet',
+    step: '02',
+    title: 'Spin & win your reward',
+    text: 'Spin the wheel and we will send your gift.',
+  },
+]
+
 export default function HowItWorks({ onProceed }) {
   const reduced = useReducedMotion()
+  const steps = SKIP_QUIZ ? STEPS_SKIP_QUIZ : STEPS
 
   const hover = {
     y: reduced ? 0 : -5,
@@ -48,14 +69,14 @@ export default function HowItWorks({ onProceed }) {
     <section className="how" id="how-it-works">
       <Reveal as="div" className="how__head">
         <span className="how__eyebrow">How It Works</span>
-        <h2 className="how__title">Three steps. Under a minute.</h2>
+        <h2 className="how__title">{SKIP_QUIZ ? 'Two steps. Under a minute.' : 'Three steps. Under a minute.'}</h2>
         <p className="how__lede">
           No paperwork, no long forms — just your expertise and a reward you spin for.
         </p>
       </Reveal>
 
       <RevealGroup className="how__grid" stagger={0.12}>
-        {STEPS.map(({ Icon, tone, step, title, text }) => (
+        {steps.map(({ Icon, tone, step, title, text }) => (
           <RevealItem
             key={step}
             className={`how__card how__card--${tone}`}

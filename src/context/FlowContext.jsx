@@ -4,6 +4,7 @@ import { fetchAppData } from '../utils/fetchAppData.js'
 import { fetchGifts } from '../utils/fetchGifts.js'
 import { capitalizeName } from '../utils/formatName.js'
 import { CONFIG } from '../config.js'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 const FlowContext = createContext(null)
 
@@ -116,14 +117,22 @@ export function FlowProvider({ children }) {
   }, [gifts])
 
   const winnableGifts = useMemo(() => {
+    // The ?skipquiz=1 variant (see flowMode.js) skips straight to the wheel
+    // with no quiz to "lose" — so the wheel must never actually land on the
+    // consolation ("better luck next time") slice there, even though it's
+    // still shown on giftWheel above for visual symmetry.
     const pool = hasClinic
       ? [...gifts.superpremium, ...gifts.premium]
+      : SKIP_QUIZ
+      ? [...gifts.standard]
       : [...gifts.standard, ...gifts.consolation]
     // stock === 0 means out of stock. The gift still has a slice on
     // giftWheel above (so the wheel doesn't visibly shrink), but it must
     // never be the one the wheel actually lands on — see pickWinnerIndex in
     // src/utils/wheel.js, which only ever picks among `winnableGifts`.
-    return pool.filter((g) => g.stock !== 0)
+    // Inactive gifts stay in `giftWheel` for display, but are never eligible
+    // for the weighted draw. The server enforces the same rule in claimGift.
+    return pool.filter((g) => g.active !== false && g.stock !== 0)
   }, [gifts, hasClinic])
 
   function reset() {

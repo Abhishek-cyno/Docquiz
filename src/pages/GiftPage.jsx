@@ -4,6 +4,7 @@ import { useFlow, STEPS } from '../context/FlowContext.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
 import LoadingOverlay from '../components/motion/LoadingOverlay.jsx'
 import { checkGiftEligibility, claimGift } from '../utils/booking.js'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 /**
  * Owns the eligibility check so the loading overlay can stay mounted across
@@ -28,8 +29,10 @@ export default function GiftPage() {
     return () => { active = false }
   }, [doctor.mobile, eligibilityRetry])
 
-  // A score of 0 never reaches the wheel, so there is nothing to wait for.
-  const checking = score !== 0 && eligibility.status === 'checking'
+  // A score of 0 never reaches the wheel — except in the ?skipquiz=1 variant,
+  // where there's no quiz to score, so a 0 is expected and the wheel still
+  // waits on the real eligibility check.
+  const checking = (SKIP_QUIZ || score !== 0) && eligibility.status === 'checking'
 
   function retry() {
     setEligibility({ status: 'checking', error: '' })
@@ -49,7 +52,7 @@ function GiftScreen({ eligibility, onRetry }) {
   const [spinning, setSpinning] = useState(false)
   const [claimError, setClaimError] = useState('')
 
-  if (score === 0) {
+  if (!SKIP_QUIZ && score === 0) {
     return (
       <div className="card center-narrow" style={{ textAlign: 'center' }}>
         <h2 className="card__title">No rewards unlocked this time 😔</h2>

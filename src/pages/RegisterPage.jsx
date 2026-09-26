@@ -6,6 +6,7 @@ import { registerDoctor } from '../utils/booking.js'
 import doctorFormImg from '../assets/doctor-form.png'
 import PhoneInput from '../components/PhoneInput.jsx'
 import { splitPhone, joinPhone } from '../utils/phone.js'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 export default function RegisterPage() {
   const { setStep, doctor, setDoctor, specialties, categories, contentLoading } = useFlow()
@@ -39,7 +40,7 @@ export default function RegisterPage() {
     // gift/booking steps later fall back to creating that row themselves if
     // this one never lands.
     registerDoctor(doctorDetails)
-    setStep(STEPS.QUIZINTRO)
+    setStep(SKIP_QUIZ ? STEPS.GIFT : STEPS.QUIZINTRO)
   }
 
   return (

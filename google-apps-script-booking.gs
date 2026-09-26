@@ -429,6 +429,9 @@ function claimGift(data) {
       var rowId = String(rows[i][1] || '').trim() || slugify(title) || (tier + '-' + (i + 1));
       if (rowId !== id) continue;
 
+      var active = !/^(no|false|0|off)$/i.test(String(rows[i][6] || 'yes').trim());
+      if (!active) return json({ ok: false, reason: 'inactive', error: 'That gift is not currently available.' });
+
       var stock = parseNullableInt(rows[i][7]);
       if (stock !== null && stock <= 0) return json({ ok: false, reason: 'outofstock', error: 'That gift just ran out.' });
 
@@ -1222,8 +1225,9 @@ var GIFT_TIERS = ['superpremium', 'premium', 'standard', 'consolation'];
  * A row with stock exactly 0 stays on the wheel — it keeps its slice so the
  * wheel doesn't visibly shrink — but the client excludes it from
  * `winnableGifts` (see FlowContext.jsx) so it can never actually be landed
- * on. An inactive row is still dropped outright here. See claimGift() for
- * where stock actually gets decremented.
+ * on. An inactive row remains in the response for visual display, but is
+ * excluded from `winnableGifts` and rejected again by claimGift(). See
+ * claimGift() for where stock actually gets decremented.
  */
 function readGifts() {
   var sheet = tab(TAB.gifts);
@@ -1235,8 +1239,6 @@ function readGifts() {
     if (GIFT_TIERS.indexOf(tier) === -1) return;
 
     var active = !/^(no|false|0|off)$/i.test(String(r[6] || 'yes').trim());
-    if (!active) return;
-
     var stock = parseNullableInt(r[7]);
 
     var title = String(r[2] || '').trim();
@@ -1255,6 +1257,7 @@ function readGifts() {
       short: String(r[3] || '').trim() || title,
       desc: String(r[4] || '').trim(),
       emoji: String(r[5] || '').trim() || '🎁',
+      active: active,
       stock: stock, // null = unlimited
       weight: parseWeight(r[8]),
     });

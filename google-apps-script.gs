@@ -32,6 +32,10 @@ function doPost(e) {
       ]);
     }
 
+    // Phone values arrive as "+91 98765 43210". Plain text prevents
+    // Google Sheets from treating the leading + as a formula.
+    sheet.getRange('N:N').setNumberFormat('@');
+
     sheet.appendRow([
       data.submittedAt || new Date().toISOString(),
       data.name || '',
@@ -46,7 +50,7 @@ function doPost(e) {
       JSON.stringify(data.answers || []),
       data.clinic || '',
       data.email || '',
-      data.phone || ''
+      String(data.phone == null ? '' : data.phone).replace(/\D/g, '').slice(-10)
     ]);
 
     return ContentService

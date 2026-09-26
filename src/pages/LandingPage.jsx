@@ -6,6 +6,7 @@ import DoctorScene from '../components/hero/DoctorScene.jsx'
 import HowItWorks from '../components/HowItWorks.jsx'
 import { BoltIcon, GiftIcon, UsersIcon, ShieldIcon, ClipboardIcon } from '../components/hero/MedicalIcons.jsx'
 import { EASE_OUT } from '../animations/motion.js'
+import { SKIP_QUIZ } from '../utils/flowMode.js'
 
 // Decorative faint crosses scattered across the hero background.
 const CROSSES = [
@@ -80,9 +81,15 @@ export default function LandingPage() {
           </RevealItem>
 
           <RevealItem as="p" className="landing-hero__lede">
-            Please answer three short questions related to your specialty{' '}
-            <br />
-            then spin the wheel to claim your reward. It will take less than a minute.
+            {SKIP_QUIZ ? (
+              'Spin the wheel to claim your reward. It will take less than a minute.'
+            ) : (
+              <>
+                Please answer three short questions related to your specialty{' '}
+                <br />
+                then spin the wheel to claim your reward. It will take less than a minute.
+              </>
+            )}
           </RevealItem>
 
           <RevealItem className="landing-hero__perks">
